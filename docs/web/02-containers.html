@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Containers & Deployment (C4 L2) — NetPak64</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>NetPak64</h1>
+      <p>Containers & Deployment (C4 Level 2)</p>
+    </div>
+  </header>
+
+  <nav>
+    <div class="container">
+      <a href="index.html">Overview</a>
+      <a href="00-primer.html">N64 Primer</a>
+      <a href="01-context.html">Context (C4 L1)</a>
+      <a href="02-containers.html" class="active">Containers (C4 L2)</a>
+      <a href="03-components.html">Components (C4 L3)</a>
+      <a href="04-dynamic.html">Sequences</a>
+      <a href="05-references.html">References</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <div class="content">
+        <div class="breadcrumb"><a href="index.html">Home</a> / <a href="01-context.html">Context</a> / Containers</div>
+
+        <h1>02 — Containers & Deployment (C4 Level 2)</h1>
+
+        <h2>Container View (C4 L2)</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/c4-containers.svg" alt="C4 Containers - Processes, libraries, and threading">
+          <p class="diagram-caption">Figure: Runtime containers — what runs where and how they communicate</p>
+        </div>
+
+        <h2>Reading the container view</h2>
+
+        <p>A "container" here (C4 sense: independently runnable/deployable unit) is unusual in this project because one of the containers is a <strong>MIPS binary running inside an emulated console inside another container</strong>. The stack, from the inside out:</p>
+
+        <pre>game code ──calls──► libnetpak ──PI loads/stores/DMA──► [emulated bus boundary]
+   ──► NetPak glue (ares) ──direct call──► DeviceCore (netpak-core)
+   ──SPSC queues──► NetClient thread ──UDP──► np64-relay ──UDP──► peers</pre>
+
+        <p>The <strong>emulated bus boundary</strong> is the load-bearing interface: everything to its left is spec-portable ROM code that would run unmodified on real hardware; everything to its right is host-side implementation detail.</p>
+
+        <h2>Containers within one player's machine</h2>
+
+        <table>
+          <tr>
+            <th>Container</th>
+            <th>Tech</th>
+            <th>Responsibility</th>
+            <th>Key interface</th>
+          </tr>
+          <tr>
+            <td>ares desktop-ui</td>
+            <td>C++ / hiro</td>
+            <td>Frontend: enumerates the node tree, settings, input, AV output</td>
+            <td>ares <code>Node</code> tree</td>
+          </tr>
+          <tr>
+            <td>ares N64 core</td>
+            <td>C++ cooperative scheduler</td>
+            <td>Cycle-aware console model</td>
+            <td>PI decode, event queue, IP3 line</td>
+          </tr>
+          <tr>
+            <td>Game ROM + libnetpak</td>
+            <td>MIPS/libdragon</td>
+            <td>Game + driver, inside the emulated N64; talks to the device only via PI reads/writes/DMA + cart IRQ</td>
+            <td>Device registers at <code>0x05F0_0000</code> (spec)</td>
+          </tr>
+          <tr>
+            <td>NetPak glue</td>
+            <td>C++ (<code>ares/n64/netpak/*</code>)</td>
+            <td>~300-500 lines: bus decode at 0x05F0_0000, node registration, recurring tick event, IRQ line, serialization</td>
+            <td>―</td>
+          </tr>
+          <tr>
+            <td>netpak-core <code>DeviceCore</code></td>
+            <td>C++ library (thirdparty submodule)</td>
+            <td>Register file, command FSM, RX ring / TX slot, epoch. Owned by the emulation thread; no threads/sockets/clocks of its own</td>
+            <td><code>readHalf/writeHalf/tick/serialize</code></td>
+          </tr>
+          <tr>
+            <td>netpak-core <code>NetClient</code></td>
+            <td>C++, own <code>std::thread</code></td>
+            <td>UDP socket I/O, relay handshake, keepalive, control-plane retransmit, token re-pin. Sees only SPSC queues + atomic <code>LinkStatus</code></td>
+            <td>Two SPSC queues + atomic snapshot</td>
+          </tr>
+        </table>
+
+        <p><strong>The one threading rule</strong> (integration doc §6, restated because every container above obeys it): <em>all architecturally visible device state is owned by the emulation thread.</em> The net thread's entire world is two single-producer/single-consumer queues and one atomic. There is no lock on the emulation thread's path; savestates are race-free by construction; loopback runs are deterministic.</p>
+
+        <h2>The relay host</h2>
+
+        <p><code>np64-relay</code> is a single static Rust binary (tokio runtime — chosen for no-GC latency jitter and trivial Docker deploys) with a Prometheus metrics endpoint. One UDP socket per client connection; two logical planes over it (reliable control, fire-and-forget data).</p>
+
+        <h2>Deployment Views</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/c4-deployment.svg" alt="Deployment - Dev loop vs. production">
+          <p class="diagram-caption">Figure: Dev loop (one machine, 2 ares + local relay) vs. production (VPS relay, NAT'd clients)</p>
+        </div>
+
+        <h2>Dev loop (the configuration that must never regress)</h2>
+
+        <p>Two ares instances + <code>np64-relay --dev</code> on one machine, all configured by env vars (<code>NP64_RELAY</code>, <code>NP64_ROOM</code>, <code>NP64_NAME</code>, <code>NP64_LOG</code> — precedence: env > <code>netpak.bml</code> beside the ROM > defaults).</p>
+
+        <p>A degenerate form uses <code>NP64_RELAY=loopback</code>: the built-in echo backend, no sockets at all, fully deterministic — this is the CI configuration.</p>
+
+        <h2>Production deployment</h2>
+
+        <p>Relay on a public VPS; players behind consumer NAT. The protocol is designed for this topology:</p>
+
+        <ul>
+          <li>Keepalives every ~10 s hold NAT bindings</li>
+          <li>The token re-pins a client's source address transparently mid-session (no reconnect needed)</li>
+          <li>The ~1200 B frame cap dodges path-MTU fragmentation</li>
+        </ul>
+
+        <p><strong>Capacity math:</strong> Worst case per saturated room = 8 nodes × 30 Hz × 256 B × 7-peer fanout ≈ <strong>0.4 MB/s</strong>. Realistic homebrew rooms (2–4 players, 10–30 Hz) are an order of magnitude below that. One small VPS hosts a community.</p>
+
+        <h2>Cross-container data formats</h2>
+
+        <p>Three formats cross container boundaries; keeping them distinct avoids confusion:</p>
+
+        <ol>
+          <li><strong>Device register/buffer layout</strong> (spec §5.2) — crosses the emulated bus. Big-endian 32-bit registers as two AD16 halves; 1024 B payload MTU.</li>
+          <li><strong><code>Frame</code></strong> (netpak-core internal) — crosses the SPSC queues between <code>DeviceCore</code> and <code>NetClient</code>. In-memory struct, host-endian; <em>not</em> wire format.</li>
+          <li><strong>Wire frame</strong> (spec §8) — crosses UDP. 16 B header <code>{ver, type, flags, channel, token u32, seq u16, ack u16, src u8, dst u8, len u16}</code> + payload; explicit serialization, never <code>memcpy</code> of a struct.</li>
+        </ol>
+
+        <h2>What is deliberately <em>not</em> a container</h2>
+
+        <ul>
+          <li><strong>No PC-side bridge app</strong> — the defining difference from N64-NetLib; the emulator is the endpoint.</li>
+          <li><strong>No game server</strong> — the relay forwards; game logic stays in the ROMs.</li>
+          <li><strong>No TCP anywhere in the hot path</strong> — reliability where needed is seq/ack over UDP, layered as the GameNetworkingSockets-style pattern.</li>
+        </ul>
+
+        <div class="section-nav">
+          <a href="01-context.html">← Context (C4 L1)</a>
+          <a href="03-components.html">Components (C4 L3) →</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>NetPak64</strong> — Architecture & Design Documentation</p>
+      <p>Source: <code>docs/architecture/02-containers.md</code></p>
+    </div>
+  </footer>
+</body>
+</html>

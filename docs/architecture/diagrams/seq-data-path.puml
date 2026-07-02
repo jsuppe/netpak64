@@ -1,0 +1,39 @@
+@startuml seq-data-path
+title End-to-end datagram: netpak_send() on A to netpak_recv() on B (ch0)
+
+box "Player A (ares instance)" #EEEEEE
+participant "Game A" as GA
+participant "libnetpak A" as LA
+participant "DeviceCore A" as DA
+participant "NetClient A" as NA
+end box
+participant "np64-relay" as R
+box "Player B (ares instance)" #EEEEEE
+participant "NetClient B" as NB
+participant "DeviceCore B" as DB
+participant "libnetpak B" as LB
+participant "Game B" as GB
+end box
+
+GA -> LA : netpak_send(dst=B, ch0, buf, len)
+LA -> LA : cache writeback(buf)
+LA -> DA : dma_write buf -> TX_BUF (0x1000)
+LA -> DA : TX_LEN=len; TX_DST=B|ch0
+LA -> DA : TX_DOORBELL
+note right of DA : doorbell side effect fires on\nlow-half write completing the word
+DA -> NA : Frame -> outbound SPSC (immediately - no tick wait)
+DA -> DA : later: IRQ_STATUS |= TX_DONE
+NA -> R : DATA {token, src=A, dst=B, ch0} (UDP, <=1200 B)
+R -> R : token valid? budget ok? room lookup
+R -> NB : forward DATA as-is (no buffering, no acks)
+NB -> DB : Frame -> inbound SPSC
+... B's next tick event (~0.5 ms emulated time) ...
+DB -> DB : tick(): ingest into RX ring;\nRX_COUNT++; IRQ_STATUS |= RX_READY
+DB -> LB : cart IRQ (IP3)
+LB -> DB : W1C ack RX_READY
+LB -> DB : read RX_LEN / RX_SRC
+LB -> LB : dma_read RX_WIN -> RDRAM ring;\ncache invalidate
+LB -> DB : RX_CONSUME (pop head, expose next)
+GB -> LB : netpak_recv(&pkt)   // game's own cadence
+LB --> GB : pkt {src=A, ch0, payload} | -EAGAIN
+@enduml

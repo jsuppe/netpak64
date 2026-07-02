@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>References & Bibliography — NetPak64</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>NetPak64</h1>
+      <p>References & Bibliography</p>
+    </div>
+  </header>
+
+  <nav>
+    <div class="container">
+      <a href="index.html">Overview</a>
+      <a href="00-primer.html">N64 Primer</a>
+      <a href="01-context.html">Context (C4 L1)</a>
+      <a href="02-containers.html">Containers (C4 L2)</a>
+      <a href="03-components.html">Components (C4 L3)</a>
+      <a href="04-dynamic.html">Sequences</a>
+      <a href="05-references.html" class="active">References</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <div class="content">
+        <div class="breadcrumb"><a href="index.html">Home</a> / References</div>
+
+        <h1>08 — References & Bibliography</h1>
+
+        <p>Consolidated bibliography for the entire architecture documentation. Inline citations throughout point here.</p>
+
+        <h2>N64 platform documentation</h2>
+
+        <ul>
+          <li><strong><a href="https://n64brew.dev/wiki/Main_Page">N64brew Wiki</a></strong> — the actively maintained community hardware reference
+            <ul>
+              <li><a href="https://n64brew.dev/wiki/Peripheral_Interface">Peripheral Interface</a> — PI bus, domains, timing registers, DMA</li>
+              <li><a href="https://n64brew.dev/wiki/Memory_map">Memory map</a> — KSEG segments, PI address ranges</li>
+              <li><a href="https://n64brew.dev/wiki/MIPS_Interface">MIPS Interface</a> — interrupt architecture</li>
+              <li><a href="https://n64brew.dev/wiki/64DD">64DD</a> — disk drive, Randnet</li>
+              <li><a href="https://n64brew.dev/wiki/ISViewer">ISViewer</a> — debug channel precedent</li>
+            </ul>
+          </li>
+          <li><strong>NEC VR4300/VR4305/VR4310 User's Manual</strong> — CPU ISA, caches (16 KB I / 8 KB D, 16 B lines, write-back, no snooping), CP0/CAUSE interrupt bits. Widely mirrored.</li>
+          <li><strong><a href="https://64dd.org">64dd.org</a></strong> — 64DD preservation project, hardware, Randnet service history, disk format</li>
+        </ul>
+
+        <h2>Homebrew ecosystem</h2>
+
+        <ul>
+          <li><strong><a href="https://libdragon.dev">libdragon</a></strong> — open-source N64 SDK
+            <ul>
+              <li><a href="https://github.com/DragonMinded/libdragon">GitHub</a></li>
+              <li>DMA/cache helper semantics (8-byte alignment for <code>dma_read</code>/<code>dma_write</code>)</li>
+              <li>Cart-IRQ handler registration</li>
+            </ul>
+          </li>
+          <li><strong><a href="https://n64brew.dev">N64brew</a></strong> — community (wiki, Discord, game jams)</li>
+          <li><strong><a href="https://github.com/buu342/N64-NetLib">N64-NetLib</a></strong> (buu342) — closest prior art: flashcart-USB homebrew networking with PC bridge and Java servers</li>
+          <li><strong><a href="https://github.com/buu342/N64-UNFLoader">UNFLoader</a></strong> (buu342) — standard USB flashcart loader/debug tool</li>
+          <li><strong><a href="https://github.com/Polprzewodnikowy/SummerCart64">SummerCart64</a></strong> — open flashcart with 64DD-emulation mode</li>
+          <li><strong><a href="https://64drive.retroactive.be/">64drive</a></strong> — dev flashcart with documented USB protocol</li>
+        </ul>
+
+        <h2>Emulators</h2>
+
+        <ul>
+          <li><strong><a href="https://ares-emu.net">ares</a></strong>
+            <ul>
+              <li><a href="https://github.com/ares-emulator/ares">GitHub</a></li>
+              <li>Integration target; Node tree, cooperative scheduler, event queue, Homebrew Mode/ISViewer precedent</li>
+              <li>ISC-licensed</li>
+            </ul>
+          </li>
+          <li><strong><a href="https://github.com/gopher64/gopher64">gopher64</a></strong> — Rust N64 emulator with input-lockstep netplay</li>
+          <li><strong><a href="https://github.com/simple64/simple64">simple64</a></strong> — input-lockstep netplay reference</li>
+          <li><strong><a href="https://github.com/n64dev/cen64">cen64</a></strong> — cycle-accurate C emulator; candidate second port</li>
+          <li><strong><a href="https://github.com/HailToDodongo">HailToDodongo's N64 dev fork of ares</a></strong> — developer-oriented fork; candidate second home</li>
+        </ul>
+
+        <h2>Networking design</h2>
+
+        <ul>
+          <li><strong><a href="https://gafferongames.com/categories/game-networking/">Gaffer On Games</a></strong> (Glenn Fiedler) — the canonical game networking primer
+            <ul>
+              <li><a href="https://gafferongames.com/post/udp_vs_tcp/">UDP vs. TCP</a> — rationale for fire-and-forget data</li>
+              <li><a href="https://gafferongames.com/post/packet_fragmentation_and_reassembly/">Packet fragmentation</a> — why 1200 B MTU cap</li>
+              <li><a href="https://gafferongames.com/post/reliable_ordered_messages/">Reliable ordered messages</a> — sliding window pattern</li>
+            </ul>
+          </li>
+          <li><strong><a href="https://github.com/ValveSoftware/GameNetworkingSockets">GameNetworkingSockets</a></strong> (Valve) — industrial-scale reliable-over-UDP; the pattern our control plane and ch1 follow</li>
+          <li><strong><a href="https://www.rfc-editor.org/rfc/rfc768">RFC 768</a></strong> — UDP specification</li>
+          <li><strong><a href="https://www.rfc-editor.org/rfc/rfc9000#section-5.1">RFC 9000 §5.1</a></strong> — QUIC connection IDs: connection identity decoupled from addresses (inspiration for token re-pinning)</li>
+          <li><strong><a href="https://www.rfc-editor.org/rfc/rfc5905">RFC 5905</a></strong> — NTPv4: conceptual basis for relay-anchored shared clock</li>
+          <li><strong><a href="https://www.rfc-editor.org/rfc/rfc9147">RFC 9147</a></strong> — DTLS 1.3; v2 hardening candidate</li>
+          <li><strong><a href="https://noiseprotocol.org">Noise Protocol Framework</a></strong> — v2 hardening candidate</li>
+          <li><strong><a href="https://web.mit.edu/Saltzer/www/publications/endtoend/endtoend.pdf">End-to-End Arguments in System Design</a></strong> (Saltzer, Reed & Clark, 1984) — why ch1 reliability lives in the library, not the relay</li>
+        </ul>
+
+        <h2>Implementation stack</h2>
+
+        <ul>
+          <li><strong><a href="https://tokio.rs">tokio</a></strong> — async Rust runtime for relay</li>
+          <li><strong><a href="https://prometheus.io">Prometheus</a></strong> — metrics endpoint</li>
+          <li><strong><a href="https://plantuml.com">PlantUML</a></strong> — diagram source format</li>
+          <li><strong><a href="https://github.com/plantuml-stdlib/C4-PlantUML">C4-PlantUML</a></strong> — stdlib macros for architecture diagrams</li>
+          <li><strong><a href="https://c4model.com">C4 model</a></strong> (Simon Brown) — architecture documentation framework</li>
+        </ul>
+
+        <h2>Historical context</h2>
+
+        <ul>
+          <li><strong>Randnet</strong> (64DD modem service, Japan 1999–2002) — established that networked N64 devices are period-authentic</li>
+          <li><strong>SharkWire Online</strong> (N64 modem cartridge) — another network peripheral</li>
+          <li><strong>Morita Shogi 64</strong> (cartridge with built-in modem for networked shogi) — period-authentic example of game-level network features</li>
+        </ul>
+
+        <h2>Further reading</h2>
+
+        <p>For deeper dives:</p>
+
+        <ul>
+          <li><strong>Emulator architecture:</strong> <a href="https://ares-emu.net">ares</a> source code (Node tree, scheduler, PI decode, 64DD implementation as reference)</li>
+          <li><strong>N64 hardware:</strong> <a href="https://n64brew.dev/wiki/Main_Page">N64brew wiki</a> + <a href="https://en.wikipedia.org/wiki/Nintendo_64_technical_specifications">Wikipedia N64 technical specs</a></li>
+          <li><strong>Game networking:</strong> <a href="https://gafferongames.com">Gaffer On Games</a> full archive + <a href="https://github.com/ValveSoftware/GameNetworkingSockets">GameNetworkingSockets</a> source</li>
+          <li><strong>Security:</strong> <a href="https://noiseprotocol.org">Noise Protocol Framework</a> + <a href="https://tools.ietf.org/html/rfc5246">RFC 5246 (TLS 1.2)</a> / <a href="https://tools.ietf.org/html/rfc8446">RFC 8446 (TLS 1.3)</a></li>
+        </ul>
+
+        <div class="section-nav">
+          <a href="04-dynamic.html">← Sequences</a>
+          <a href="index.html">Back to Overview</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>NetPak64</strong> — Architecture & Design Documentation</p>
+      <p>Source: <code>docs/architecture/08-references.md</code></p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,27 @@
+@startuml seq-nat-rebind
+title NAT rebind healing via token re-pin (and liveness GC)
+
+participant "NetClient\n(behind NAT)" as C
+participant "Home NAT" as NAT
+participant "np64-relay" as R
+participant "Peers" as P
+
+C -> NAT : frames from 192.168.1.10:41000
+NAT -> R : appears as 203.0.113.7:30001
+R -> R : session[token].addr = 203.0.113.7:30001
+
+... NAT mapping expires / router rebinds (common on consumer gear) ...
+
+C -> NAT : KEEPALIVE (token)   // every ~10 s regardless
+NAT -> R : now appears as 203.0.113.7:30777
+R -> R : token valid -> RE-PIN\nsession[token].addr = :30777
+note right of R : any valid-token frame re-pins;\nno reconnect, no game-visible event\n(same idea as QUIC connection IDs)
+R -> NAT : subsequent forwards go to :30777
+NAT -> C : delivered
+
+== liveness failure path ==
+... ~30 s with no frames from a node ...
+R -> R : GC node
+R -> P : PEER_LEAVE fanout
+note over P : games see the peer leave\nvia LIST_PEERS / EVENT irq
+@enduml

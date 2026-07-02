@@ -1,0 +1,32 @@
+@startuml seq-session-join
+title Session join - mailbox command through relay handshake
+
+participant "Game" as G
+participant "libnetpak" as L
+participant "DeviceCore\n(emulation thread)" as D
+queue "SPSC out / in" as Q
+participant "NetClient\n(net thread)" as N
+participant "np64-relay" as R
+
+== once, at NetClient start ==
+N -> R : HELLO {proto ver, identity, room op}
+R --> N : WELCOME {token, session, node_id}
+note over N,R : token now carried on every frame;\nrelay re-pins source addr on any\nvalid-token frame (NAT healing)
+
+== per join ==
+G -> L : netpak_session_join("ABC123")
+L -> D : CMD_DATA = "ABC123"; CMD = SESSION_JOIN
+D -> D : CMD_STATUS = busy
+D -> Q : control frame JOIN (seq=n)
+Q -> N : dequeued (real time)
+N -> R : JOIN (seq=n, token)
+note right of N : reliable control plane:\nretransmit on RTO ~250 ms\n(doubling) until acked;\nJOIN handler idempotent
+R --> N : JOINED {room, node_id, peers} (ack=n)
+R -> R : fanout PEER_JOIN to room
+N -> Q : JOINED into inbound SPSC
+... next tick event (~0.5 ms emulated) ...
+Q -> D : tick() ingests JOINED
+D -> D : CMD_STATUS = ok; RES0 = node_id;\nIRQ_STATUS |= EVENT
+D -> G : cart IRQ (IP3) if EVENT unmasked
+L --> G : 0 (poll of CMD_STATUS or EVENT handler)
+@enduml

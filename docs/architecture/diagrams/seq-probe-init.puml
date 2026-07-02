@@ -1,0 +1,32 @@
+@startuml seq-probe-init
+title Device probe and initialization (libnetpak, safe on stock hardware)
+
+participant "Game" as G
+participant "libnetpak" as L
+participant "PI bus" as PI
+participant "NetPak device\n(DeviceCore)" as D
+
+G -> L : netpak_detect()
+L -> PI : io_read(0xA5F0_0000)  // MAGIC
+PI -> D : readHalf x2 (BE, high then low)
+D --> L : 0x4E503634 ("NP64")
+note right of L : On a stock console this read\nreturns open bus - possibly\naliasing stale bus values,\nhence the next two steps.
+L -> D : io_read VERSION
+D --> L : major/minor sane?
+L -> D : io_write pattern to CMD_DATA (0x0800)
+L -> D : io_read back
+D --> L : pattern matches
+L --> G : true
+
+G -> L : netpak_init(cfg)
+L -> PI : write PI_BSD_DOM2_{LAT,PWD,PGS,RLS}\n(spec-pinned values - Dom2 timing is software-owned)
+L -> D : CMD_DATA = identity; CMD = SET_IDENTITY
+D --> L : CMD_STATUS = ok
+alt cfg.mode == IRQ
+  L -> L : register_CART_handler(netpak_irq)
+  L -> D : IRQ_MASK = RX_READY|TX_DONE|EVENT|LINK_CHANGE
+else poll mode
+  L -> D : IRQ_MASK = 0  (game pumps netpak_poll())
+end
+L --> G : 0
+@enduml

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N64 Platform Primer — NetPak64</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>NetPak64</h1>
+      <p>N64 Platform Primer</p>
+    </div>
+  </header>
+
+  <nav>
+    <div class="container">
+      <a href="index.html">Overview</a>
+      <a href="00-primer.html" class="active">N64 Primer</a>
+      <a href="01-context.html">Context (C4 L1)</a>
+      <a href="02-containers.html">Containers (C4 L2)</a>
+      <a href="03-components.html">Components (C4 L3)</a>
+      <a href="04-dynamic.html">Sequences</a>
+      <a href="05-references.html">References</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <div class="content">
+        <div class="breadcrumb"><a href="index.html">Home</a> / N64 Platform Primer</div>
+
+        <h1>00 — N64 Platform Primer</h1>
+
+        <p><strong>Audience:</strong> software engineers and computer engineers joining the project, including readers with <strong>no prior N64 knowledge</strong>. Readers who know the console can skim §6–§8, which cover the parts NetPak64 leans on hardest.</p>
+
+        <p><strong>Authoritative sources:</strong> the <a href="https://n64brew.dev/wiki/Main_Page">N64brew wiki</a> (modern, actively corrected) and the NEC VR4300 User's Manual for CPU details.</p>
+
+        <h2>1. The machine in one paragraph</h2>
+
+        <p>The Nintendo 64 (1996) pairs a <strong>NEC VR4300</strong> CPU — a 64-bit MIPS III core clocked at 93.75 MHz, almost always used with 32-bit pointers — with the <strong>RCP</strong> (Reality Coprocessor, 62.5 MHz), an SGI-designed chip containing the vector signal processor (<strong>RSP</strong>), the rasterizer (<strong>RDP</strong>), and <em>all</em> of the system's I/O interfaces. Main memory is <strong>4 MB of Rambus RDRAM</strong> (8 MB with the Expansion Pak), unified between CPU, RSP, and RDP. There is no operating system at runtime: the game ROM is the whole software stack. Everything external — the cartridge, the 64DD disk drive — hangs off one shared bus, the <strong>Peripheral Interface (PI)</strong>, which is where NetPak64 lives.</p>
+
+        <h2>2. CPU address space: KSEG segments</h2>
+
+        <p>The VR4300 uses classic MIPS address segmentation. Two segments matter daily:</p>
+
+        <table>
+          <tr>
+            <th>Segment</th>
+            <th>Virtual range</th>
+            <th>Maps to</th>
+            <th>Cached?</th>
+          </tr>
+          <tr>
+            <td>KSEG0</td>
+            <td><code>0x8000_0000–0x9FFF_FFFF</code></td>
+            <td>Physical <code>0x0000_0000+</code></td>
+            <td><strong>Yes</strong> (through CPU caches)</td>
+          </tr>
+          <tr>
+            <td>KSEG1</td>
+            <td><code>0xA000_0000–0xBFFF_FFFF</code></td>
+            <td>Physical <code>0x0000_0000+</code></td>
+            <td><strong>No</strong> (uncached, direct)</td>
+          </tr>
+        </table>
+
+        <p>So physical address <code>0x05F0_0000</code> (the NetPak64 base) is touched by software at KSEG1 <code>0xA5F0_0000</code> for uncached register access. Memory-mapped I/O is <em>always</em> accessed via KSEG1 — a cached read of a device register would hand you a stale cache line, not the device. The TLB-mapped user segment exists but homebrew rarely uses it.</p>
+
+        <h2>3. Caches and the coherence problem</h2>
+
+        <p>The VR4300 has a 16 KB instruction cache and an <strong>8 KB write-back data cache with 16-byte lines</strong> — and, critically, <strong>no bus snooping</strong>. DMA engines write straight to RDRAM behind the cache's back. Coherence is entirely software's job:</p>
+
+        <ul>
+          <li>Before DMA <strong>out of</strong> a buffer you wrote with the CPU: write back the dirty lines</li>
+          <li>Before CPU-reading a buffer DMA <strong>filled</strong>: invalidate those lines</li>
+        </ul>
+
+        <p>Getting this wrong yields the classic symptom of "the packet is fine sometimes." This is why the NetPak64 spec pins <strong>all device buffers 8-byte aligned and lengths padded to 8</strong> (libdragon's <code>dma_read</code>/<code>dma_write</code> require 8-byte-aligned RDRAM addresses), and why <code>libnetpak</code> keeps its RDRAM rings cache-line disciplined.</p>
+
+        <h2>4. The RCP and its interfaces</h2>
+
+        <p>The RCP contains the RSP and RDP plus six memory-mapped interface blocks the CPU programs:</p>
+
+        <table>
+          <tr>
+            <th>Block</th>
+            <th>Role</th>
+          </tr>
+          <tr>
+            <td><strong>MI</strong></td>
+            <td>Interrupt aggregation for RCP-internal sources; version/init</td>
+          </tr>
+          <tr>
+            <td><strong>VI</strong></td>
+            <td>Framebuffer scan-out</td>
+          </tr>
+          <tr>
+            <td><strong>AI</strong></td>
+            <td>Audio DMA to DAC</td>
+          </tr>
+          <tr>
+            <td><strong>PI</strong></td>
+            <td><strong>The cartridge/64DD bus + its DMA engine — NetPak64's home</strong></td>
+          </tr>
+          <tr>
+            <td><strong>SI</strong></td>
+            <td>Controllers/PIF (joybus)</td>
+          </tr>
+          <tr>
+            <td><strong>RI</strong></td>
+            <td>RDRAM configuration</td>
+          </tr>
+        </table>
+
+        <h2>5. Interrupts</h2>
+
+        <p>The VR4300 takes interrupts through CAUSE-register bits:</p>
+
+        <table>
+          <tr>
+            <th>CAUSE bit</th>
+            <th>Source</th>
+          </tr>
+          <tr>
+            <td>IP2</td>
+            <td>RCP aggregate — MI collects SP/SI/AI/VI/PI/DP into one line</td>
+          </tr>
+          <tr>
+            <td><strong>IP3</strong></td>
+            <td><strong>Cartridge INT line</strong> — a physical pin on the cart edge and the 64DD connector</td>
+          </tr>
+          <tr>
+            <td>IP4</td>
+            <td>Pre-NMI (console Reset button pressed; ~0.5 s warning before NMI)</td>
+          </tr>
+          <tr>
+            <td>IP7</td>
+            <td>CPU internal COUNT/COMPARE timer</td>
+          </tr>
+        </table>
+
+        <p>Note the asymmetry: PI <strong>DMA-complete</strong> interrupts arrive via MI on IP2, but a <strong>peripheral wanting attention on its own initiative</strong> uses the dedicated cart line on IP3. The 64DD is the canonical IP3 user; <strong>NetPak64 asserts the same line</strong> (level-triggered, <code>IRQ_STATUS & IRQ_MASK</code>), which is why it works identically in an emulator that models the DD and, later, on a physical connector. libdragon exposes handler registration for this line.</p>
+
+        <h2>6. The Peripheral Interface (PI) — NetPak64's bus</h2>
+
+        <h3>6.1 Physical layer: AD16</h3>
+
+        <p>The PI bus is a <strong>16-bit multiplexed address/data bus</strong> ("AD16"). A transaction latches a 32-bit address in two phases (ALE_H, ALE_L strobes), then moves 16-bit data words with read/write strobes. Both the <strong>cartridge port</strong> (top) and the <strong>EXT port</strong> (bottom, where the 64DD docks) carry <em>the same bus</em> — electrically, a device can't tell which connector it's on. Two consequences NetPak64 exploits:</p>
+
+        <ol>
+          <li>A spec written against PI addresses is a <strong>connector-neutral contract</strong>: a bottom-port adapter and a passthrough cartridge can both implement it.</li>
+          <li>The natural register granularity is <strong>16 bits</strong>. NetPak64's 32-bit registers are architecturally two big-endian halves, with side effects defined to fire when the <strong>low half</strong> completes — making a 32-bit CPU store, a DMA burst, and two 16-bit stores behave identically.</li>
+        </ol>
+
+        <h3>6.2 Address decode: domains and ranges</h3>
+
+        <p>The PI decodes its address space into regions, each assigned one of <strong>two timing domains</strong> (Dom1, Dom2):</p>
+
+        <table>
+          <tr>
+            <th>Physical range</th>
+            <th>Domain/Addr</th>
+            <th>Conventional occupant</th>
+          </tr>
+          <tr>
+            <td><code>0x0500_0000–0x05FF_FFFF</code></td>
+            <td><strong>Dom2 / Addr1</strong></td>
+            <td><strong>64DD control registers — NetPak64 window at <code>0x05F0_0000</code></strong></td>
+          </tr>
+          <tr>
+            <td><code>0x0600_0000–0x07FF_FFFF</code></td>
+            <td>Dom1 / Addr1</td>
+            <td>64DD IPL ROM</td>
+          </tr>
+          <tr>
+            <td><code>0x0800_0000–0x0FFF_FFFF</code></td>
+            <td>Dom2 / Addr2</td>
+            <td>Cartridge SRAM / FlashRAM saves</td>
+          </tr>
+          <tr>
+            <td><code>0x1000_0000–0x1FBF_FFFF</code></td>
+            <td>Dom1 / Addr2</td>
+            <td>Cartridge ROM</td>
+          </tr>
+        </table>
+
+        <p>NetPak64 sits at the <strong>top 64 KiB of Dom2/Addr1</strong> (<code>0x05F0_0000–0x05F0_FFFF</code>). The real 64DD ASIC (and <a href="https://github.com/Polprzewodnikowy/SummerCart64">SummerCart64</a>'s DD-emulation mode) answers the <em>low</em> part of that range (~<code>0x0500_0000–0x0500_05xx</code>), so sitting high avoids both. On a stock console with nothing attached, reads there return <strong>open bus</strong> — which is what makes the probe sequence (read <code>MAGIC</code>, check <code>VERSION</code>, write/read-back scratch) unambiguous.</p>
+
+        <h3>6.3 Bus timing registers</h3>
+
+        <p>Each domain has four CPU-programmable timing registers — <code>PI_BSD_DOMn_{LAT, PWD, PGS, RLS}</code> — controlling, in PI clock cycles: address-to-data <strong>latency</strong>, strobe <strong>pulse width</strong>, <strong>page size</strong> (words per address issue), and bus <strong>release</strong> time. The key asymmetry:</p>
+
+        <ul>
+          <li><strong>Dom1</strong> timings are seeded at boot from bytes in the ROM header (the IPL reads them) — a <em>convention</em> owned by whatever ROM is inserted.</li>
+          <li><strong>Dom2</strong> timings are <strong>software-owned</strong>: whatever the driver programs is what the bus does.</li>
+        </ul>
+
+        <p>NetPak64 deliberately chose Dom2 so the spec can <strong>pin the timing values</strong> and have <code>netpak_init()</code> program them — bus behavior becomes a spec constant rather than a header convention, which matters enormously for eventual hardware parity.</p>
+
+        <h3>6.4 Two access paths: CPU direct vs. PI DMA</h3>
+
+        <p>Software reaches PI space two ways, and NetPak64 uses both:</p>
+
+        <ol>
+          <li><strong>Direct (uncached) CPU access</strong> — a KSEG1 load/store; the CPU stalls for the whole bus transaction. Fine for registers; ruinous for bulk data.</li>
+          <li><strong>PI DMA</strong> — the CPU programs <code>PI_DRAM_ADDR</code>, <code>PI_CART_ADDR</code>, and a length register; the PI engine moves the block between RDRAM and the bus while the CPU runs on. Completion raises the PI interrupt (via MI/IP2). This is the path for <code>TX_BUF</code>/<code>RX_WIN</code> payloads. Only one PI DMA runs at a time, system-wide — the PI is a shared, contended resource.</li>
+        </ol>
+
+        <h2>7. The cartridge, the 64DD, and period networking hardware</h2>
+
+        <ul>
+          <li><strong>Cartridge</strong>: ROM plus optional save memory on the PI bus; no DMA mastering of its own — the console always initiates. Modern flashcarts add USB links to a PC.</li>
+          <li><strong>64DD</strong> (1999, Japan-only): magnetic disk drive docking under the console on the EXT port; decodes Dom2/Addr1 registers and drives the IP3 cart interrupt — the direct architectural template for NetPak64. Its <strong>Randnet</strong> service (modem cartridge + dial-up ISP) plus the <strong>SharkWire Online</strong> cartridge and <strong>Morita Shogi 64</strong> establish that memory-mapped network peripherals are period-authentic N64 engineering.</li>
+          <li><strong>ISViewer</strong>: Intelligent Systems' development-cartridge debug channel — a small register window in cart space that dev-kit tools read text from. Emulators including ares implement it to give homebrew output. It is the in-tree precedent NetPak64's ares integration follows: <em>a bus-mapped pseudo-device that exists to serve homebrew</em>.</li>
+        </ul>
+
+        <h2>8. The modern homebrew stack</h2>
+
+        <ul>
+          <li><strong><a href="https://libdragon.dev">libdragon</a></strong> — the open-source N64 SDK. NetPak64's <code>libnetpak</code> is a libdragon extension library tracking the <em>preview</em> branch. The legal alternative to Nintendo's proprietary SDK.</li>
+          <li><strong><a href="https://n64brew.dev">N64brew</a></strong> — the community (wiki, Discord, game jams) where the homebrew audience for NetPak64 lives.</li>
+          <li><strong><a href="https://ares-emu.net">ares</a></strong> — multi-system, accuracy-focused, cycle-aware N64 core with "Homebrew Mode" and ISViewer support; our integration target.</li>
+          <li><strong><a href="https://github.com/gopher64/gopher64">gopher64</a></strong> (Rust) and <strong><a href="https://github.com/simple64/simple64">simple64</a></strong> — ship <em>input-lockstep netplay</em>, not a real device.</li>
+          <li><strong><a href="https://github.com/n64dev/cen64">cen64</a></strong> (C, cycle-accurate) — candidate second port for <code>netpak-core</code>.</li>
+          <li><strong><a href="https://github.com/buu342/N64-NetLib">N64-NetLib</a></strong> — closest prior art: homebrew networking via flashcart USB and a PC bridge. Validates demand and the ack'd-UDP design.</li>
+        </ul>
+
+        <h2>9. Vocabulary quick reference</h2>
+
+        <table>
+          <tr>
+            <th>Term</th>
+            <th>Meaning here</th>
+          </tr>
+          <tr>
+            <td>PI</td>
+            <td>Peripheral Interface — the shared cart/64DD bus and its DMA engine</td>
+          </tr>
+          <tr>
+            <td>Dom2/Addr1</td>
+            <td>PI decode region <code>0x0500_0000–0x05FF_FFFF</code> with software-programmed timings</td>
+          </tr>
+          <tr>
+            <td>Cart IRQ / IP3</td>
+            <td>The peripheral-initiated interrupt line NetPak64 asserts</td>
+          </tr>
+          <tr>
+            <td>KSEG1</td>
+            <td>Uncached CPU window; all device register access goes through it</td>
+          </tr>
+          <tr>
+            <td>Open bus</td>
+            <td>What reads of unmapped PI addresses return (no device driving the bus)</td>
+          </tr>
+          <tr>
+            <td>Doorbell</td>
+            <td>A write-only register whose write <em>is</em> the command ("this buffer is ready")</td>
+          </tr>
+          <tr>
+            <td>W1C</td>
+            <td>Write-1-to-clear semantics (<code>IRQ_STATUS</code>)</td>
+          </tr>
+          <tr>
+            <td>Epoch</td>
+            <td>Device counter bumped on loadstate/reconnect so game netcode can detect discontinuity</td>
+          </tr>
+        </table>
+
+        <div class="section-nav">
+          <a href="01-context.html">→ System Context (C4 L1)</a>
+          <a href="05-references.html">→ Full References</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>NetPak64</strong> — Architecture & Design Documentation</p>
+      <p>Source: <code>docs/architecture/00-n64-platform-primer.md</code></p>
+    </div>
+  </footer>
+</body>
+</html>

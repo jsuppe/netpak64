@@ -1,0 +1,35 @@
+@startuml c4-deployment
+!include <C4/C4_Deployment>
+
+title NetPak64 — Deployment (dev loop vs. production)
+
+Deployment_Node(devbox, "Developer machine", "macOS / Linux / Windows") {
+  Deployment_Node(a1, "ares instance A", "NP64_NAME=alice NP64_ROOM=") {
+    Container(emuA, "ares + NetPak device", "C++", "Creates room")
+  }
+  Deployment_Node(a2, "ares instance B", "NP64_NAME=bob NP64_ROOM=<code>") {
+    Container(emuB, "ares + NetPak device", "C++", "Joins room")
+  }
+  Deployment_Node(rl, "local relay", "np64-relay --dev") {
+    Container(relayDev, "np64-relay", "Rust", "localhost only; verbose logs")
+  }
+}
+
+Deployment_Node(vps, "Community VPS", "$5/mo, Docker") {
+  Container(relayProd, "np64-relay", "Rust + tokio", "Public relay; Prometheus scraped")
+}
+
+Deployment_Node(p1, "Player 1 home network", "NAT'd consumer router") {
+  Container(emu1, "ares + NetPak device", "C++")
+}
+Deployment_Node(p2, "Player 2 home network", "NAT'd consumer router") {
+  Container(emu2, "ares + NetPak device", "C++")
+}
+
+Rel(emuA, relayDev, "UDP", "127.0.0.1")
+Rel(emuB, relayDev, "UDP", "127.0.0.1")
+Rel(emu1, relayProd, "UDP (token re-pin heals NAT rebinds)")
+Rel(emu2, relayProd, "UDP")
+
+SHOW_LEGEND()
+@enduml

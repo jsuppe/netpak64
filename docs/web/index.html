@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetPak64 — Architecture & Documentation</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>NetPak64</h1>
+      <p>A memory-mapped network device for Nintendo 64 homebrew</p>
+    </div>
+  </header>
+
+  <nav>
+    <div class="container">
+      <a href="index.html" class="active">Overview</a>
+      <a href="00-primer.html">N64 Primer</a>
+      <a href="01-context.html">Context (C4 L1)</a>
+      <a href="02-containers.html">Containers (C4 L2)</a>
+      <a href="03-components.html">Components (C4 L3)</a>
+      <a href="04-dynamic.html">Sequences</a>
+      <a href="05-references.html">References</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <div class="content">
+        <div class="intro-hero">
+          <h2>NetPak64: Emulator as a Network Endpoint</h2>
+          <p><strong>The game sees a NIC, not netplay.</strong></p>
+          <p>NetPak64 adds a spec-defined, memory-mapped network device to the ares Nintendo 64 emulator, making each instance a first-class network endpoint. Homebrew games link against a libdragon driver library and implement their own netcode — state sync, lockstep, or prediction — just as they would on real hardware.</p>
+        </div>
+
+        <h2>What is NetPak64?</h2>
+        <p>NetPak64 is a complete networking solution for Nintendo 64 homebrew that bridges emulator and hardware through a shared <strong>register-level hardware specification</strong>:</p>
+
+        <div class="grid">
+          <div class="card">
+            <h3>📋 Spec-First Design</h3>
+            <p>A versioned device contract on the PI bus, not an emulator API. The same ROM binary later runs unmodified on a physical adapter, enabling emulator ↔ emulator play now and emulator ↔ console play once hardware follows the spec.</p>
+          </div>
+          <div class="card">
+            <h3>🎮 Homebrew-Focused</h3>
+            <p>Designed for the N64 homebrew community using libdragon. Developers run two ares instances plus a local relay on one machine for fast iteration. No flashcarts, USB bridges, or PC-side tether required.</p>
+          </div>
+          <div class="card">
+            <h3>🚀 Device-Level Networking</h3>
+            <p>Games see a network device, not synchronized inputs. They implement their own netcode (the proven approach for custom ROM development). The library provides datagram send/recv, session management, RTT/clock, and both unreliable and reliable channels.</p>
+          </div>
+          <div class="card">
+            <h3>💡 Self-Hostable Relay</h3>
+            <p>A single static Rust binary using tokio, speaking an efficient UDP protocol. Rooms with join codes, star-topology forwarding, presence events, and shared clock. A $5 VPS serves a community.</p>
+          </div>
+        </div>
+
+        <h2>The Four Deliverables</h2>
+        <table>
+          <tr>
+            <th>Component</th>
+            <th>Tech</th>
+            <th>Purpose</th>
+          </tr>
+          <tr>
+            <td><strong>netpak-spec.md</strong></td>
+            <td>Versioned spec</td>
+            <td>Register map, PI timing, IRQ semantics, command set, wire protocol — the contract everything below implements</td>
+          </tr>
+          <tr>
+            <td><strong>netpak-core</strong></td>
+            <td>C++ library</td>
+            <td>Standalone device model: register file, command FSM, rings, net client, loopback+UDP backends. Submoduled into ares today; lifts into adapter firmware later</td>
+          </tr>
+          <tr>
+            <td><strong>ares integration</strong></td>
+            <td>C++ glue (~500 lines)</td>
+            <td>Thin in-emulator adapter: bus decode, tick event, IRQ line, serialization. Decouples from ares' fast release cadence via out-of-tree core</td>
+          </tr>
+          <tr>
+            <td><strong>libnetpak</strong></td>
+            <td>C / libdragon</td>
+            <td>ROM-side driver: probe, register access, IRQ handler, channels, session API, examples (probe/echo/chat/netpong)</td>
+          </tr>
+          <tr>
+            <td><strong>np64-relay</strong></td>
+            <td>Rust + tokio</td>
+            <td>UDP relay: rooms, presence, shared clock, rate limiting. <code>--dev</code> mode for localhost loopback</td>
+          </tr>
+        </table>
+
+        <h2>Key Design Decisions</h2>
+
+        <h3>Spec-as-Contract, Not API</h3>
+        <p>The register-level device specification on the N64's PI bus is the durable contract. Emulator implementations, firmware, and future ports all satisfy the same spec. This is what makes the same ROM binary playable across different backends — a property we want to preserve.</p>
+
+        <h3>Three Architectural Constraints</h3>
+        <ol>
+          <li><strong>Zero behavioral diff when disabled.</strong> With NetPak off, ares is bit-identical to upstream. Keeps the fork mechanically rebasable and an upstream RFC credible.</li>
+          <li><strong>Emulation-thread state ownership.</strong> All device state the CPU can read is owned by one thread. The net thread touches only lock-free queues and an atomic. Savestates are race-free by construction; loopback runs are deterministic.</li>
+          <li><strong>Thin, reusable glue.</strong> The in-ares diff stays ≤ ~500 lines. All real logic lives in `netpak-core` so it can be reused for firmware and other emulators without dragging the whole ares fork.</li>
+        </ol>
+
+        <h3>Device-Level, Not Input-Lockstep</h3>
+        <p>Unlike <a href="https://github.com/gopher64/gopher64">gopher64</a> or <a href="https://github.com/simple64/simple64">simple64</a> netplay (which synchronize controller streams), NetPak64 gives the game a real network device. Games implement their own netcode — state sync, snapshot interpolation, or lockstep prediction — matching their design.</p>
+
+        <h3>Hardware-Plausible Spec</h3>
+        <p>Every choice stays implementable by an MCU/CPLD: trivial decode at a fixed address, software-programmed timing registers, single-packet TX, exposed-head RX. The spec carries <code>VERSION</code>/<code>CAPS</code> negotiation from day one so a hardware revision doesn't strand ROMs.</p>
+
+        <h2>Project Status</h2>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-number">✅</div>
+            <div class="stat-label">Proposal v0.2 &amp; Design Complete</div>
+          </div>
+          <div class="stat">
+            <div class="stat-number">📐</div>
+            <div class="stat-label">Architecture Documented (C4 L1–L3)</div>
+          </div>
+          <div class="stat">
+            <div class="stat-number">⏳</div>
+            <div class="stat-label">Ready for P0 (Spec freeze &amp; Recon)</div>
+          </div>
+        </div>
+
+        <p><strong>Current phase:</strong> pre-P0. The proposal (<code>netpak64-proposal.md</code> v0.2) and ares integration design (<code>netpak64-ares-integration.md</code> v0.1) are frozen enough to begin phase P0 (spec extraction and architecture recon against ares). Implementation repos haven't been created yet.</p>
+
+        <h2>What's Next</h2>
+
+        <h3>P0 — Spec Freeze & Recon (≈1 week)</h3>
+        <ul>
+          <li>Extract <code>netpak-spec.md</code> v0.9 as a standalone document</li>
+          <li>Resolve the ares recon checklist (R1–R10) against a real ares checkout</li>
+          <li><strong>Exit:</strong> spec reviewed, recon symbols confirmed</li>
+        </ul>
+
+        <h3>P1 — Loopback Vertical Slice (≈2–3 weeks)</h3>
+        <ul>
+          <li>Create <code>netpak-core</code> and <code>ares</code> fork repos</li>
+          <li>Device attaches, loopback backend (no relay), <code>probe</code> + <code>echo</code> ROMs green</li>
+          <li><strong>Exit:</strong> echo RTT measured in-emulator; savestate round-trips</li>
+        </ul>
+
+        <h3>P2 — UDP Relay MVP (≈2–3 weeks)</h3>
+        <ul>
+          <li>Create <code>np64-relay</code> repo</li>
+          <li>Two ares instances over Tailscale then a VPS run the <code>chat</code> demo</li>
+          <li><strong>Exit:</strong> cross-machine session with latency histogram</li>
+        </ul>
+
+        <h3>P3 — Library Hardening (≈2–3 weeks)</h3>
+        <ul>
+          <li>Reliable <code>ch1</code>, time sync, peer events, epoch semantics, <code>netpong</code> example</li>
+          <li><strong>Exit:</strong> an outside dev can go from README to networked ROM in under an hour</li>
+        </ul>
+
+        <h3>P4 — Stretch</h3>
+        <ul>
+          <li>DTLS/encryption, TCP/TLS fallback, ares upstream RFC, second emulator port, firmware bring-up</li>
+        </ul>
+
+        <h2>Key Differentiators</h2>
+
+        <div class="callout">
+          <strong>vs. gopher64/simple64:</strong> Input-lockstep netplay is perfect for retail games. NetPak64 gives homebrew a real device and lets it choose its own netcode model (state sync, prediction, lockstep).
+        </div>
+
+        <div class="callout">
+          <strong>vs. N64-NetLib:</strong> Closest prior art. NetLib validates demand but requires a flashcart + PC bridge + Java servers. NetPak64 makes the emulator itself the endpoint, with a relay as the only external service (self-hostable on a $5 VPS).
+        </div>
+
+        <div class="callout">
+          <strong>Future hardware:</strong> The spec is emulator-first but hardware-plausible. When the adapter project is ready, a physical implementation follows the same spec, and ROMs don't change.
+        </div>
+
+        <h2>Trust Model (v1)</h2>
+        <p>Plaintext UDP with two secrets: a per-connection random 32-bit token (frame authenticity + identity across NAT rebinds) and unguessable 6-char room codes. Right-sized for "friends playing homebrew." Hardening path (v2): DTLS or Noise-based encryption.</p>
+
+        <h2>Documentation Structure</h2>
+        <p>This site is organized by <a href="https://c4model.com/">C4 model</a> levels plus supporting material:</p>
+        <ul>
+          <li><strong><a href="00-primer.html">N64 Platform Primer</a>:</strong> Everything about the hardware, caches, PI bus, and interrupts, written for engineers with no N64 background</li>
+          <li><strong><a href="01-context.html">System Context (C4 L1)</a>:</strong> Actors, system boundary, positioning against gopher64/NetLib</li>
+          <li><strong><a href="02-containers.html">Containers (C4 L2)</a>:</strong> Processes, libraries, threads, and where they run</li>
+          <li><strong><a href="03-components.html">Components (C4 L3)</a>:</strong> Deep dive into netpak-core, ares glue, libnetpak, and the relay</li>
+          <li><strong><a href="04-dynamic.html">Dynamic Views</a>:</strong> Six sequence diagrams covering probe/init, session join, datagram flow, savestate/epoch, NAT rebind, and reliable channels</li>
+          <li><strong><a href="05-references.html">References</a>:</strong> ~30 third-party citations</li>
+        </ul>
+
+        <h2>Getting Started</h2>
+        <p>Start with <a href="00-primer.html"><strong>the N64 Platform Primer</strong></a> if you're new to the console. Then follow <a href="01-context.html">System Context</a> → <a href="02-containers.html">Containers</a> → <a href="03-components.html">Components</a> for a top-down architecture tour. Jump to <a href="04-dynamic.html">Sequences</a> to see how the pieces interact at runtime.</p>
+
+        <div class="section-nav">
+          <a href="00-primer.html">→ Start with N64 Primer</a>
+          <a href="01-context.html">→ System Context</a>
+          <a href="05-references.html">→ References</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>NetPak64</strong> — Architecture & Design Documentation</p>
+      <p>Status: Pre-phase-0 (Spec freeze & recon pending) · <a href="https://github.com/n64brew/netpak64" style="color: #0066cc;">Source (when available)</a></p>
+      <p style="margin-top: 20px; opacity: 0.6;">Documentation generated from PlantUML C4 diagrams · References integrated throughout</p>
+    </div>
+  </footer>
+</body>
+</html>

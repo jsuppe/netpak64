@@ -1,0 +1,49 @@
+@startuml c4-component-netpak-core
+!include <C4/C4_Component>
+
+title netpak-core — Components (C4 Level 3)
+
+Container_Boundary(core, "netpak-core (standalone C++ library, thirdparty/ submodule)") {
+
+  Boundary(emuside, "Emulation-thread owned (DeviceCore)") {
+    Component(regfile, "RegisterFile", "device.cpp", "16-bit-granular register array; 32-bit BE registers as two halves; side effects fire on low-half completion (doorbells, W1C, CMD trigger, RX_CONSUME)")
+    Component(fsm, "CommandFSM", "cmd_fsm.cpp", "Mailbox executor: NOP, SET_IDENTITY, SESSION_CREATE/JOIN/LEAVE, LIST_PEERS, PING, GET_TIME, GET_STATS. CMD_STATUS idle/busy/ok/errno")
+    Component(rings, "RxRing + TxSlot", "rings.cpp", "Device-side RX ring (exposed head via RX_WIN, drop-oldest on overflow, RX_COUNT saturation) + single in-flight TX slot (2 KiB, 1024 B payload MTU)")
+    Component(irq, "IrqModel", "device.cpp", "IRQ_STATUS/IRQ_MASK; level = OR(status AND mask); RX_READY, TX_DONE, EVENT, LINK_CHANGE")
+    Component(epoch, "Epoch counter", "device.cpp", "Bumped on loadstate/reconnect/soft-reset; exposed to ROMs for discontinuity detection")
+    Component(ser, "Serializer hooks", "device.cpp", "Registers, rings, FSM state, epoch, blob version - everything a savestate needs")
+  }
+
+  Component(spsc, "SpscQueue<Frame>", "spsc.hpp", "Lock-free single-producer/single-consumer queues, one per direction. The ONLY mutable state shared between threads (plus atomic LinkStatus)")
+
+  Boundary(netside, "Net-thread owned (NetClient)") {
+    Component(ctl, "ControlPlane", "netclient.cpp", "HELLO/WELCOME handshake, token storage, seq/ack reliable delivery for room ops, RTO ~250 ms doubling, keepalive ~10 s, RTT sampling")
+    Component(codec, "Frame codec", "frame.hpp", "Explicit wire (de)serialization of the 16 B header + payload; byte-exact, endianness-safe; shared with future firmware")
+    Component(budp, "backend_udp", "backend_udp.cpp", "Real socket I/O against a relay; poll with short timeout")
+    Component(bloop, "backend_loopback", "backend_loopback.cpp", "Builtin echo backend - no sockets, deterministic; the CI configuration")
+    Component(sock, "sockets_{posix,win}", "sockets_*.cpp", "Platform socket wrapper (BSD / winsock2); no external dependencies")
+  }
+}
+
+Container_Ext(glue, "ares NetPak glue", "readHalf/writeHalf, tick(), serialize() - doc 04")
+Container_Ext(relay, "np64-relay", "UDP")
+Container_Ext(harness, "Conformance harness", "tests/: drives DeviceCore with scripted PI accesses - executable spec for firmware too")
+
+Rel(glue, regfile, "readHalf / writeHalf", "emulation thread")
+Rel(glue, ser, "serialize / unserialize")
+Rel(regfile, fsm, "CMD write triggers")
+Rel(regfile, rings, "Doorbell commits TX; RX_CONSUME pops")
+Rel(fsm, ctl, "Session ops as control frames", "outbound SPSC")
+Rel(rings, spsc, "TX frames out at doorbell; RX frames in at tick()")
+Rel(spsc, ctl, "Both directions")
+Rel(fsm, irq, "EVENT bits")
+Rel(rings, irq, "RX_READY / TX_DONE")
+Rel(ctl, codec, "Encode / decode")
+Rel(codec, budp, "Datagrams")
+Rel(codec, bloop, "Datagrams (echoed)")
+Rel(budp, sock, "sendto / recvfrom")
+Rel(budp, relay, "UDP frames")
+Rel(harness, regfile, "Scripted PI accesses", "host tests, no emulator")
+
+SHOW_LEGEND()
+@enduml

@@ -1,0 +1,32 @@
+@startuml seq-savestate-epoch
+title Savestate / loadstate and the epoch resync contract
+
+actor "User" as U
+participant "ares" as A
+participant "NetPak glue" as GL
+participant "DeviceCore" as D
+participant "NetClient" as N
+participant "Game (via libnetpak)" as G
+participant "Peer game" as P
+
+== save ==
+U -> A : savestate
+A -> GL : serialize(s)
+GL -> D : serialize: blob ver, registers,\nRX ring (indices+contents), TX slot,\ncommand FSM, epoch; + irqLine
+note over D,N : relay session (token, socket)\ndeliberately NOT serialized -\nit lives in NetClient
+
+== load ==
+U -> A : loadstate
+A -> GL : unserialize(s)
+GL -> D : restore state
+GL -> D : epoch++
+GL -> N : requestFlush()  // drop stale in-flight frames
+GL -> GL : recompute IRQ line
+note right of N : session survived in real time;\npeers kept playing while we\nwere "in the past"
+
+== game-level resync ==
+G -> G : per-frame: netpak_epoch() changed!
+G -> P : app-level resync (ch1):\nrequest state snapshot / rejoin lockstep
+P --> G : current game state
+note over G,P : the device converts an emulator\nanomaly into an ordinary netcode\nevent games already handle
+@enduml

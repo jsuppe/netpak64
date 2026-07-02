@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic Views (Sequences) — NetPak64</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>NetPak64</h1>
+      <p>Dynamic Views (Sequence Diagrams)</p>
+    </div>
+  </header>
+
+  <nav>
+    <div class="container">
+      <a href="index.html">Overview</a>
+      <a href="00-primer.html">N64 Primer</a>
+      <a href="01-context.html">Context (C4 L1)</a>
+      <a href="02-containers.html">Containers (C4 L2)</a>
+      <a href="03-components.html">Components (C4 L3)</a>
+      <a href="04-dynamic.html" class="active">Sequences</a>
+      <a href="05-references.html">References</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <div class="content">
+        <div class="breadcrumb"><a href="index.html">Home</a> / <a href="03-components.html">Components</a> / Sequences</div>
+
+        <h1>04 — Dynamic Views (Sequence Diagrams)</h1>
+
+        <p>Six flow diagrams show how the architecture's pieces interact at runtime — each crosses at least two ownership domains (game / emulation thread / net thread / relay), which is exactly where designs break.</p>
+
+        <h2>1. Probe & Init — Safe on stock hardware</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/seq-probe-init.svg" alt="Probe and initialization sequence">
+          <p class="diagram-caption">Figure: Hardened probe that works on stock N64 (no device), then init programs the PI bus</p>
+        </div>
+
+        <p><strong>Why three probe steps:</strong> On a stock console the NetPak window is <strong>open bus</strong>, and open-bus reads can alias recently driven bus values — a lone <code>MAGIC</code> match is not proof of presence. The sequence does: MAGIC → VERSION sanity → CMD_DATA write/read-back. All three steps complete in microseconds. Init then programs the PI bus itself (<code>PI_BSD_DOM2_*</code> to spec-pinned values), the key that made Dom2 the right decode home.</p>
+
+        <h2>2. Session Join — Mailbox lifecycle</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/seq-session-join.svg" alt="Session join mailbox command">
+          <p class="diagram-caption">Figure: CMD write through reliable delivery to game receiving JOINED</p>
+        </div>
+
+        <p><strong>The asynchrony:</strong> CMD_DATA+CMD write → CMD_STATUS=busy → control frame out the SPSC → reliable RTO/ack exchange to relay → JOINED ingested <strong>at the next tick</strong> → CMD_STATUS=ok, results in RES0-3, EVENT IRQ. Two timescales: net exchange happens in real time; the <em>result</em> becomes architecturally visible only on an emulated-time tick boundary (the property that enables savestates).</p>
+
+        <h2>3. End-to-end datagram</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/seq-data-path.svg" alt="Data path: send to receive">
+          <p class="diagram-caption">Figure: Sender cache + DMA → relay forward → receiver tick → RDRAM ring → game poll</p>
+        </div>
+
+        <p><strong>Signature flow:</strong> Sender fills TX_BUF via DMA, doorbell enqueues immediately (TX doesn't wait for a tick; only <em>inbound</em> visibility quantizes). Relay does zero work (forward only). Receiver: tick ingests into RX ring → RX_READY → IRQ → handler DMA to RDRAM ring → game pops at its cadence. The RDRAM ring decouples interrupt timing from game timing.</p>
+
+        <h2>4. Savestate & Epoch</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/seq-savestate-epoch.svg" alt="Savestate and epoch resync">
+          <p class="diagram-caption">Figure: Device state serializes, relay session doesn't, game detects resync on epoch change</p>
+        </div>
+
+        <p><strong>The design's answer to emulator features vs. live network:</strong> Device state serializes; the relay session deliberately does not. On load: restore → epoch++ → requestFlush() → recompute IRQ. The game notices netpak_epoch() changed and runs an <em>application-level</em> resync with peers — converting an emulator-only anomaly into an ordinary netcode event (late-join/resync) the game must handle anyway.</p>
+
+        <h2>5. NAT rebind & Liveness</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/seq-nat-rebind.svg" alt="NAT rebind healing">
+          <p class="diagram-caption">Figure: Token re-pinning heals address changes with zero game-visible effect</p>
+        </div>
+
+        <p><strong>Two mechanisms:</strong> Keepalives (~10 s) keep bindings warm, and <strong>token re-pinning</strong> — the relay updates a session's source address on <em>any</em> valid-token frame — heals remaps with no game-visible effect (the same idea as QUIC connection IDs, <a href="https://www.rfc-editor.org/rfc/rfc9000#section-5.1">RFC 9000 §5.1</a>). Failure path: ~30 s silence → GC → PEER_LEAVE fanout (a peer event the game sees).</p>
+
+        <h2>6. ch1 Reliable channel</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/seq-ch1-reliable.svg" alt="ch1 reliable-ordered channel">
+          <p class="diagram-caption">Figure: Sliding window in libnetpak (not relay) so same code works on hardware</p>
+        </div>
+
+        <p><strong>The key insight:</strong> All reliability lives in the library, the relay is blind to it. On loss, the receiver buffers out-of-order packets; RTO retransmit triggers on timeout; cumulative acks slide the window. The relay forwards every frame identically. This end-to-end placement is what lets the identical ROM code run on a physical adapter, echoing the classic <a href="https://web.mit.edu/Saltzer/www/publications/endtoend/endtoend.pdf">end-to-end argument</a> (Saltzer, Reed & Clark, 1984).</p>
+
+        <h2>Invariants every sequence preserves</h2>
+
+        <ol>
+          <li>Architecturally visible state mutates <strong>only</strong> on the emulation thread (register access or tick).</li>
+          <li>Inbound data becomes visible <strong>only</strong> at tick boundaries (determinism under loopback).</li>
+          <li>The net thread touches <strong>only</strong> SPSC queues + atomic status.</li>
+          <li>The relay does <strong>no</strong> work before token validation, and no reliability work for ch0/ch1 data at all.</li>
+          <li>Nothing the ROM observes distinguishes the virtual device from a spec-conformant physical one.</li>
+        </ol>
+
+        <div class="section-nav">
+          <a href="03-components.html">← Components (C4 L3)</a>
+          <a href="05-references.html">References →</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>NetPak64</strong> — Architecture & Design Documentation</p>
+      <p>Source: <code>docs/architecture/07-dynamic-views.md</code></p>
+    </div>
+  </footer>
+</body>
+</html>

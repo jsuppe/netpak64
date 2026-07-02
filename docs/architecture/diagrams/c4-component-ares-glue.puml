@@ -1,0 +1,36 @@
+@startuml c4-component-ares-glue
+!include <C4/C4_Component>
+
+title ares NetPak glue — Components (C4 Level 3)
+
+Container_Boundary(glue, "ares/n64/netpak/ (~300-500 lines total, fork branch: netpak)") {
+  Component(node, "NetPak node + enable setting", "netpak.hpp/.cpp", "ares Node::Object in the system tree at the 64DD attach point; Node::Setting::Boolean enable (Expansion Pak / Homebrew Mode pattern) - appears in settings UI for free")
+  Component(cfg, "Config loader", "netpak.cpp", "Precedence: env (NP64_RELAY/ROOM/NAME/LOG) > netpak.bml beside ROM > defaults. Constructs DeviceCore + NetClient on load")
+  Component(io, "PI I/O handlers", "io.cpp", "readHalf/writeHalf at offset = addr - 0x05F0_0000, word wrappers matching what ares' decode presents; inserted AHEAD of the dd range, guarded by enable()")
+  Component(tickev, "Tick event", "netpak.cpp", "Recurring emulated-time queue event (~0.5 ms = ~46,875 CPU cycles): drains inbound SPSC into RX ring, TX slot to outbound, steps FSM, samples LinkStatus, recomputes IRQ")
+  Component(irqline, "IRQ line driver", "netpak.cpp", "Drives cart line (CPU CAUSE IP3) via the same helper dd uses; level-triggered from DeviceCore::irqAsserted()")
+  Component(serial, "Serialization", "serialization.cpp", "Savestate: delegates to DeviceCore::serialize + irqLine; unserialize: epoch++, NetClient::requestFlush(), recompute line. Run-ahead: tick suppressed, no epoch bump")
+}
+
+Container_Ext(pi, "ares PI / bus decode", "shared decode used by CPU uncached access AND PI DMA (recon R1)")
+Container_Ext(queue, "ares event queue", "emulated-time deferred work (PI DMA finish, SI, DD clock)")
+Container_Ext(cpu, "ares CPU (VR4300 model)", "CAUSE IP3 cart interrupt input")
+Container_Ext(dcore, "netpak-core DeviceCore", "thirdparty submodule - doc 03")
+Container_Ext(nclient, "netpak-core NetClient", "own thread - doc 03")
+Container_Ext(sysser, "ares system serialization", "savestate orchestration (recon R8)")
+
+Rel(pi, io, "Reads/writes/DMA in window, only when enable()", "falls through to dd/open-bus when disabled")
+Rel(io, dcore, "readHalf / writeHalf")
+Rel(queue, tickev, "Fires every ~0.5 ms emulated; re-arms itself (recon R3)")
+Rel(tickev, dcore, "tick(fromNet, toNet, link)")
+Rel(tickev, nclient, "Queue endpoints + status()")
+Rel(tickev, irqline, "Recompute after tick")
+Rel(io, irqline, "Recompute after W1C / mask writes")
+Rel(irqline, cpu, "Assert/deassert IP3 (dd's path, recon R2)")
+Rel(sysser, serial, "serialize(s)")
+Rel(serial, dcore, "serialize / epochBump")
+Rel(serial, nclient, "requestFlush() after unserialize")
+Rel(cfg, node, "Registers on N64 system node")
+
+SHOW_LEGEND()
+@enduml

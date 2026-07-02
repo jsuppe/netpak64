@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Components (C4 L3) — NetPak64</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>NetPak64</h1>
+      <p>Components (C4 Level 3)</p>
+    </div>
+  </header>
+
+  <nav>
+    <div class="container">
+      <a href="index.html">Overview</a>
+      <a href="00-primer.html">N64 Primer</a>
+      <a href="01-context.html">Context (C4 L1)</a>
+      <a href="02-containers.html">Containers (C4 L2)</a>
+      <a href="03-components.html" class="active">Components (C4 L3)</a>
+      <a href="04-dynamic.html">Sequences</a>
+      <a href="05-references.html">References</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <div class="content">
+        <div class="breadcrumb"><a href="index.html">Home</a> / <a href="02-containers.html">Containers</a> / Components</div>
+
+        <h1>03 — Components (C4 Level 3)</h1>
+
+        <p>Deep dive into the internal structure of each major subsystem. Four C4 L3 diagrams detail the components and their interactions.</p>
+
+        <h2>netpak-core — The Standalone Device Library</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/c4-component-netpak-core.svg" alt="netpak-core components">
+          <p class="diagram-caption">Figure: Register file, FSM, rings, net client, backends, and conformance harness</p>
+        </div>
+
+        <p><code>netpak-core</code> is the project's center of gravity: a standalone, dependency-light C++ library holding <strong>all real device logic</strong>, consumed as a <code>thirdparty/</code> git submodule by the ares fork today and by adapter firmware and other emulators later. It has no threads of its own on the emulation side, no exceptions across the glue boundary, and no external dependencies (sockets wrapped internally).</p>
+
+        <h3>The two halves and the seam between them</h3>
+
+        <ul>
+          <li><strong>DeviceCore</strong> — <em>emulation-thread owned.</em> Register file, command FSM, rings, IRQ model, epoch, serialization. No threads, no sockets, <strong>no clocks of its own</strong> — time only advances when the host calls <code>tick()</code>. This half lifts into MCU firmware nearly verbatim.</li>
+          <li><strong>NetClient</strong> — <em>owns a <code>std::thread</code> and a UDP socket.</em> Handshake, keepalive, control-plane retransmission, token re-pin, RTT sampling. Touches <strong>only</strong> the two SPSC queues and an atomic <code>LinkStatus</code> snapshot.</li>
+        </ul>
+
+        <h3>Key components</h3>
+
+        <ul>
+          <li><strong>RegisterFile:</strong> 16-bit-granular storage (the PI bus is AD16). Reads elsewhere in the 64 KiB window return <code>0xFFFF</code> per half.</li>
+          <li><strong>CommandFSM:</strong> Mailbox executor for NOP, SET_IDENTITY, SESSION_CREATE/JOIN/LEAVE, LIST_PEERS, PING, GET_TIME, GET_STATS. Asynchronous: CMD write → busy → results after FSM processes the request.</li>
+          <li><strong>Rings:</strong> Single in-flight TX (doorbell commits), device-side RX ring (exposed head, drop-oldest on overflow). One DMA per packet in each direction.</li>
+          <li><strong>Control plane:</strong> HELLO/WELCOME handshake, seq/ack reliable delivery for room ops (RTO ≈ 250 ms doubling), keepalive (~10 s), RTT sampling.</li>
+          <li><strong>Backends:</strong> <code>backend_udp</code> (real relay) and <code>backend_loopback</code> (builtin echo, deterministic, no sockets — the CI config).</li>
+        </ul>
+
+        <h2>ares Glue — The Thin Adapter</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/c4-component-ares-glue.svg" alt="ares NetPak glue components">
+          <p class="diagram-caption">Figure: Bus decode, tick event, IRQ line, serialization — ~300-500 lines total</p>
+        </div>
+
+        <p>The glue is deliberately the <em>least</em> interesting part of the system — four files, ~300–500 lines, every one replaceable per ares release. Its design is governed by the three constraints; this explains how each component honors them.</p>
+
+        <h3>Key components</h3>
+
+        <ul>
+          <li><strong>Bus decode:</strong> Inserted ahead of dd range in the shared PI-space decode. When disabled, bit-identical fallthrough to upstream (constraint 1).</li>
+          <li><strong>Tick event:</strong> Every ~0.5 ms emulated time (~46,875 CPU cycles): drains inbound SPSC into RX ring, TX to outbound, steps FSM, samples LinkStatus, recomputes IRQ. Inbound packets become visible <strong>only at tick boundaries</strong> (determinism + savestate coherence).</li>
+          <li><strong>IRQ line:</strong> <code>irqLine = |(IRQ_STATUS & IRQ_MASK)</code>, recomputed on any change, driven onto CPU CAUSE IP3. No cross-thread race (emulation thread only).</li>
+          <li><strong>Serialization:</strong> Savestate = blob version + DeviceCore state + irqLine. Relay session lives <em>outside</em> savestate. On unserialize: restore → epoch++ → requestFlush() → recompute line.</li>
+          <li><strong>Reset semantics:</strong> Soft reset clears registers/rings but NetClient survives (resync event, not disconnect). Hard power recreates NetClient (fresh handshake).</li>
+        </ul>
+
+        <h2>libnetpak — The ROM-Side Driver</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/c4-component-libnetpak.svg" alt="libnetpak driver components">
+          <p class="diagram-caption">Figure: Probe, register layer, IRQ handler/poll pump, channels, command wrappers</p>
+        </div>
+
+        <p><code>libnetpak</code> is the ROM-side driver: a C library in the libdragon ecosystem that turns the raw register device into a small, non-blocking, game-loop-shaped API. Everything in it must run on real hardware unmodified — it uses nothing but PI accesses, the cart IRQ, and libdragon primitives.</p>
+
+        <h3>Key API surface</h3>
+
+        <ul>
+          <li><strong>Probe & init:</strong> Hardened probe (MAGIC → VERSION → CMD_DATA write/read-back), program PI_BSD_DOM2 timings, choose IRQ or poll mode.</li>
+          <li><strong>Register access:</strong> KSEG1 uncached for registers, DMA + cache discipline for buffers (8-byte alignment invariants).</li>
+          <li><strong>Channels:</strong> ch0 unreliable (UDP semantics end-to-end), ch1 reliable with sliding window implemented <strong>in the library</strong> so the same code path works on hardware.</li>
+          <li><strong>Epoch watching:</strong> <code>netpak_epoch()</code> surfaces loadstate discontinuities for game-level resync.</li>
+          <li><strong>Time sync:</strong> Relay-anchored shared clock + RTT for building lockstep or snapshot interpolation.</li>
+        </ul>
+
+        <h2>np64-relay — The UDP Relay Service</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/c4-component-relay.svg" alt="np64-relay components">
+          <p class="diagram-caption">Figure: Rooms, control plane, data forwarder, liveness, clock, rate limiting</p>
+        </div>
+
+        <p>The relay is a deliberately <strong>dumb</strong> star-topology forwarder: rooms, presence, a shared clock, and per-frame token validation — nothing else. Rust + tokio for a single static binary with no GC jitter.</p>
+
+        <h3>Key components</h3>
+
+        <ul>
+          <li><strong>Identity & token:</strong> 32-bit random token (spoof resistance + identity across NAT rebinds). Relay re-pins source address on any valid-token frame.</li>
+          <li><strong>Control plane (reliable):</strong> HELLO/WELCOME, CREATE/JOIN/LEAVE with seq/ack, RTO ~250 ms doubling. Handlers idempotent.</li>
+          <li><strong>Data plane (fire-and-forget):</strong> DATA forwarded as-is, no buffering, no acks. Unicast or broadcast (0xFF) to room.</li>
+          <li><strong>Rooms & presence:</strong> 6-char join codes, ≤ 8 nodes/room, PEER_JOIN/PEER_LEAVE fanout.</li>
+          <li><strong>Liveness:</strong> KEEPALIVE ~10 s, GC nodes after ~30 s silence, idle rooms reaped.</li>
+          <li><strong>Clock service:</strong> TIME/PING/PONG for relay-anchored shared clock + RTT.</li>
+          <li><strong>Rate limiting:</strong> Per-token frame/byte budgets; no buffering before token proved.</li>
+        </ul>
+
+        <div class="section-nav">
+          <a href="02-containers.html">← Containers (C4 L2)</a>
+          <a href="04-dynamic.html">Sequences →</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>NetPak64</strong> — Architecture & Design Documentation</p>
+      <p>Source: <code>docs/architecture/03-05-component-*.md</code></p>
+    </div>
+  </footer>
+</body>
+</html>

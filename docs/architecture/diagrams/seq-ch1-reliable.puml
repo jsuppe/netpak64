@@ -1,0 +1,37 @@
+@startuml seq-ch1-reliable
+title ch1 reliable-ordered channel - sliding window IN libnetpak (relay stays dumb)
+
+participant "Game A" as GA
+participant "libnetpak A\n(ch1 window)" as LA
+participant "relay" as R
+participant "libnetpak B\n(ch1 window)" as LB
+participant "Game B" as GB
+
+GA -> LA : netpak_send(B, ch1, msg1, RELIABLE)
+LA -> LA : assign seq=1, hold copy in window
+LA -> R : DATA ch1 {seq=1}
+R -> LB : forward (fire-and-forget - relay unaware of reliability)
+LB -> LB : in-order? deliver; record ack=1
+LB --> GB : netpak_recv -> msg1
+
+GA -> LA : send msg2 (seq=2)
+LA -> R : DATA ch1 {seq=2}
+R -x LB : LOST
+
+GA -> LA : send msg3 (seq=3)
+LA -> R : DATA ch1 {seq=3}
+R -> LB : forward
+LB -> LB : seq gap (expected 2) - buffer msg3,\nack still = 1
+
+LB -> R : DATA ch1 {ack=1} (piggybacked on reverse traffic\nor bare ack after delay)
+R -> LA : forward
+... RTO ~250 ms (doubling) expires for seq=2 ...
+LA -> R : DATA ch1 {seq=2} RETRANSMIT
+R -> LB : forward
+LB -> LB : gap filled - deliver 2 then buffered 3, ack=3
+LB --> GB : netpak_recv -> msg2, msg3 (in order)
+LB -> R : {ack=3}
+R -> LA : forward
+LA -> LA : window slides; copies 1-3 released
+note over LA,LB : identical code path over a physical\nadapter - reliability ships in the ROM
+@enduml

@@ -1,0 +1,36 @@
+@startuml c4-containers
+!include <C4/C4_Container>
+
+title NetPak64 — Containers (C4 Level 2)
+
+Person(player, "Player / Developer")
+
+System_Boundary(machine, "Player machine — one ares process per player") {
+  Container(desktopui, "ares desktop-ui", "C++ / hiro", "Frontend: enumerates the node tree, settings, input, AV output")
+  Container(n64core, "ares N64 core", "C++, cooperative scheduler", "CPU (VR4300), RSP/RDP, MI/VI/AI/PI/SI/RI, cartridge, dd - cycle-aware components + emulated-time event queue")
+  Container(rom, "Game ROM + libnetpak", "MIPS binary, libdragon", "The game and its driver, running *inside* the emulated N64; talks to the device only via PI reads/writes/DMA + cart IRQ")
+  Container(glue, "NetPak glue", "C++, ares/n64/netpak/*", "~300-500 lines: bus decode at 0x05F0_0000, node registration, recurring tick event, IRQ line, serialization")
+  Container(core, "netpak-core :: DeviceCore", "C++ library (thirdparty submodule)", "Register file, command FSM, RX ring / TX slot, epoch. Owned by the emulation thread; no threads/sockets/clocks of its own")
+  Container(netclient, "netpak-core :: NetClient", "C++, own std::thread", "UDP socket I/O, relay handshake, keepalive, control-plane retransmit, token re-pin. Sees only SPSC queues + atomic LinkStatus")
+}
+
+System_Boundary(relayhost, "Relay host (VPS)") {
+  Container(relay, "np64-relay", "Rust + tokio, single static binary", "Rooms, star-topology forwarding, presence, shared clock, rate limiting; --dev mode for the local loop")
+  Container(metrics, "Metrics endpoint", "Prometheus exposition", "Rooms, nodes, frame rates, drops")
+}
+
+System_Ext(peer, "Peer endpoints", "Other ares instances (later: hardware adapters)")
+
+Rel(player, desktopui, "Uses")
+Rel(desktopui, n64core, "Hosts, configures via node tree")
+Rel(rom, n64core, "Executes on (emulated CPU)")
+Rel(n64core, glue, "PI reads/writes/DMA in 0x05F0_0000-0x05F0_FFFF; tick event; cart IRQ line (IP3)", "emulated PI bus")
+Rel(glue, core, "readHalf/writeHalf, tick(), irqAsserted(), serialize()", "direct call, emulation thread")
+Rel(core, netclient, "Frames out", "outbound SPSC (lock-free)")
+Rel(netclient, core, "Frames in + LinkStatus", "inbound SPSC + atomic snapshot, drained at tick")
+Rel(netclient, relay, "HELLO/WELCOME, control seq/ack, DATA, KEEPALIVE ~10 s", "UDP, 16 B frame header")
+Rel(relay, peer, "Forwards DATA (unicast/broadcast), presence events", "UDP")
+Rel(relay, metrics, "Exposes")
+
+SHOW_LEGEND()
+@enduml

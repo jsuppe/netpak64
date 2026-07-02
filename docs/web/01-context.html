@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Context (C4 L1) — NetPak64</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>NetPak64</h1>
+      <p>System Context (C4 Level 1)</p>
+    </div>
+  </header>
+
+  <nav>
+    <div class="container">
+      <a href="index.html">Overview</a>
+      <a href="00-primer.html">N64 Primer</a>
+      <a href="01-context.html" class="active">Context (C4 L1)</a>
+      <a href="02-containers.html">Containers (C4 L2)</a>
+      <a href="03-components.html">Components (C4 L3)</a>
+      <a href="04-dynamic.html">Sequences</a>
+      <a href="05-references.html">References</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <div class="content">
+        <div class="breadcrumb"><a href="index.html">Home</a> / <a href="00-primer.html">Primer</a> / System Context</div>
+
+        <h1>01 — System Context (C4 Level 1)</h1>
+
+        <h2>The system in one sentence</h2>
+
+        <p>NetPak64 makes an emulated Nintendo 64 a <strong>first-class network endpoint</strong> by adding a spec-defined, memory-mapped network device to the <a href="https://ares-emu.net">ares</a> emulator, a matching <a href="https://libdragon.dev">libdragon</a> driver library for game ROMs, and a self-hostable UDP relay that carries traffic between instances — with the register-level spec, not any emulator API, as the durable contract, so the same ROM later runs against physical hardware.</p>
+
+        <h2>System Context Diagram</h2>
+
+        <div class="diagram">
+          <img src="../architecture/diagrams/c4-context.svg" alt="C4 Context Diagram - System boundaries and actors">
+          <p class="diagram-caption">Figure: NetPak64 system boundaries, actors, and external systems</p>
+        </div>
+
+        <h2>Actors</h2>
+
+        <table>
+          <tr>
+            <th>Actor</th>
+            <th>Needs</th>
+            <th>Touches</th>
+          </tr>
+          <tr>
+            <td><strong>Homebrew developer</strong></td>
+            <td>Write a networked N64 game without owning hardware, flashcarts, or a PC bridge; iterate with a fast local loop</td>
+            <td>libdragon + <code>libnetpak</code> (build time); two ares instances + loopback/local relay (test time)</td>
+          </tr>
+          <tr>
+            <td><strong>Player</strong></td>
+            <td>Run a ROM someone shared, join a friend's room with a 6-char code</td>
+            <td>A NetPak64 ares build; relay address + room config</td>
+          </tr>
+          <tr>
+            <td><strong>Relay operator</strong></td>
+            <td>Host rooms for a community cheaply</td>
+            <td><code>np64-relay</code> binary/Docker on a small VPS; Prometheus metrics</td>
+          </tr>
+        </table>
+
+        <p>The developer is the primary persona for v1: every design choice that trades polish for iteration speed (env-var config, CLI-first, loopback backend) traded in their favor.</p>
+
+        <h2>System Boundary</h2>
+
+        <p>Inside the boundary: <strong>the spec</strong>, <strong>the ares fork with the device</strong> (including <code>netpak-core</code>, the reusable implementation), and <strong>np64-relay</strong>. Outside: the game ROM (user artifact, built against the library), upstream ares (we rebase; zero behavioral diff when disabled), libdragon, and the future hardware adapter (planned second implementer, not v1).</p>
+
+        <p>The boundary placement encodes the project's central bet: <strong>the contract is a hardware-shaped spec on the PI bus, not a software API.</strong> That is what lets one side of the wire be swapped (emulator → FPGA adapter) without touching ROMs, the library, or the relay.</p>
+
+        <h2>Positioning against adjacent work</h2>
+
+        <p><strong>"The game sees a NIC, not netplay"</strong> is the sharpest way to place NetPak64:</p>
+
+        <table>
+          <tr>
+            <th>Project</th>
+            <th>Approach</th>
+            <th>Relationship</th>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/gopher64/gopher64">gopher64</a>, <a href="https://github.com/simple64/simple64">simple64</a> netplay</td>
+            <td>Input-lockstep: synchronize controller streams into deterministic emulator instances</td>
+            <td>Orthogonal. Perfect for <em>retail</em> games (no ROM changes needed); useless for homebrew that wants real netcode, mixed topologies, or emulator↔hardware sessions. NetPak64 gives the <em>game</em> a device and lets it implement its own model.</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/buu342/N64-NetLib">N64-NetLib</a> (buu342)</td>
+            <td>Homebrew networking via flashcart USB → PC bridge app → Java servers</td>
+            <td>Closest prior art; validates demand and the UDP-with-reliability design. NetPak64 removes the flashcart+PC tether and adds an emulator-native device; relay protocol borrows the proven ack'd-control-plane pattern.</td>
+          </tr>
+          <tr>
+            <td>ares ISViewer / Homebrew Mode</td>
+            <td>Emulator implements a dev-era bus-mapped debug device for homebrew</td>
+            <td>The in-tree precedent that makes an upstream RFC plausible: NetPak64 is "ISViewer, but bidirectional and networked".</td>
+          </tr>
+          <tr>
+            <td>64DD / Randnet, SharkWire, Morita Shogi 64</td>
+            <td>Period hardware: memory-mapped modems/network devices</td>
+            <td>Historical legitimacy plus concrete architecture: NetPak64 decodes in the 64DD's bus range and uses its interrupt line.</td>
+          </tr>
+        </table>
+
+        <h2>Key quality attributes (drive everything downstream)</h2>
+
+        <ol>
+          <li><strong>Spec stability</strong> — <code>VERSION</code>/<code>CAPS</code> negotiation from day one; emulator-first but every choice hardware-plausible (trivial decode, MCU-liftable state machine). <em>Consequence of failure: stranded ROMs.</em></li>
+          <li><strong>Fork rebasability</strong> — zero behavioral diff when disabled; in-tree glue ≤ ~500 lines; logic out-of-tree. <em>Consequence of failure: the fork dies within a few ares releases.</em></li>
+          <li><strong>Determinism under loopback</strong> — packets become architecturally visible only at emulated-time tick boundaries, so same ROM ⇒ same trace ⇒ CI-able regression tests.</li>
+          <li><strong>Dev-loop latency</strong> — two instances plus relay on one machine, configured by env vars, no GUI required.</li>
+          <li><strong>Cheap operation</strong> — worst-case saturated room ≈ 0.4 MB/s; one $5 VPS serves a community.</li>
+        </ol>
+
+        <h2>Trust model (v1)</h2>
+
+        <p>Plaintext UDP with two secrets: a per-connection random 32-bit token (frame authenticity + identity across NAT rebinds) and unguessable 6-char room codes. Appropriate for "friends playing homebrew"; explicitly <em>not</em> resistant to an on-path attacker. Hardening path: DTLS (<a href="https://www.rfc-editor.org/rfc/rfc9147">RFC 9147</a>) or <a href="https://noiseprotocol.org">Noise</a>-based layer in v2. Relay-side abuse controls (rate limits, room GC, no public lobby listing) are v1 scope.</p>
+
+        <div class="section-nav">
+          <a href="00-primer.html">← N64 Primer</a>
+          <a href="02-containers.html">Containers (C4 L2) →</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>NetPak64</strong> — Architecture & Design Documentation</p>
+      <p>Source: <code>docs/architecture/01-system-context.md</code></p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,39 @@
+@startuml c4-context
+!include <C4/C4_Context>
+
+title NetPak64 — System Context (C4 Level 1)
+
+Person(dev, "Homebrew developer", "Writes an N64 game in C against libdragon + libnetpak; runs the two-instance dev loop locally")
+Person(player, "Player", "Runs a NetPak64-enabled ares build; joins a room with a 6-character code")
+Person(operator, "Relay operator", "Self-hosts np64-relay on a small VPS; watches metrics")
+
+Enterprise_Boundary(np64, "NetPak64 project") {
+  System(spec, "netpak-spec", "Versioned register-level device spec + UDP wire protocol. The contract every implementation below satisfies.")
+  System(emu, "NetPak64-enabled ares", "ares emulator fork with the virtual device attached at PI Dom2/Addr1, base 0x05F0_0000. A complete network endpoint - no PC-side bridge.")
+  System(relay, "np64-relay", "Self-hostable UDP relay: rooms with join codes, star-topology forwarding, presence, shared clock")
+}
+
+System_Ext(rom, "Homebrew game ROM", "Built with libdragon; links libnetpak; implements its own netcode against the device")
+System_Ext(peers, "Other players' endpoints", "More ares instances - and later, physical adapters on real consoles - in the same room")
+System_Ext(aresup, "Upstream ares", "Mainline emulator (ares-emulator/ares); the fork rebases onto each release")
+System_Ext(libdragon, "libdragon toolchain", "Open-source N64 SDK (preview branch) that the ROM and libnetpak build against")
+System_Ext(hw, "Future hardware adapter", "MCU/FPGA device implementing the same spec on a real console (deferred, not foreclosed)")
+
+Rel(dev, rom, "Builds", "libdragon toolchain")
+Rel(dev, emu, "Runs dev loop: 2 instances + local relay/loopback")
+Rel(player, emu, "Plays; configures relay/room", "env vars / settings")
+Rel(operator, relay, "Deploys, monitors", "Docker, Prometheus")
+
+Rel(rom, emu, "Executes inside; reads/writes device registers", "emulated PI bus")
+Rel(emu, relay, "Control (reliable) + data (fire-and-forget) frames", "UDP, 16 B header, ~1200 B MTU")
+Rel(peers, relay, "Same wire protocol", "UDP")
+Rel(hw, relay, "Same wire protocol, same rooms", "UDP (deferred)")
+
+Rel(emu, spec, "Implements (via netpak-core)")
+Rel(rom, spec, "Programs against (via libnetpak)")
+Rel(hw, spec, "Will implement")
+Rel_U(emu, aresup, "Rebases onto per release")
+Rel_U(rom, libdragon, "Links against")
+
+SHOW_LEGEND()
+@enduml

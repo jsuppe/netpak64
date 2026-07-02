@@ -1,0 +1,36 @@
+@startuml c4-component-relay
+!include <C4/C4_Component>
+
+title np64-relay — Components (C4 Level 3)
+
+Container_Boundary(relay, "np64-relay (Rust + tokio, single static binary)") {
+  Component(udp, "UDP driver", "tokio UdpSocket", "One socket; recv loop dispatches by frame type; send path shared by all planes")
+  Component(codec, "Frame codec", "wire.rs", "Byte-exact 16 B header (ver, type, flags, channel, token u32, seq u16, ack u16, src u8, dst u8, len u16); mirror of netpak-core frame.hpp")
+  Component(sess, "Session table", "token -> client", "HELLO/WELCOME issues random 32-bit token + node_id; validates token on every frame; RE-PINS source addr:port on any valid-token frame (NAT rebind healing)")
+  Component(rooms, "Room manager", "6-char join codes", "CREATE/JOIN/LEAVE; <= 8 nodes/room; PEER_JOIN/PEER_LEAVE presence fanout; idle-room GC")
+  Component(ctl, "Control-plane reliability", "seq/ack + retransmit", "Reliable delivery for room ops and TIME; RTO ~250 ms doubling; idempotent handlers (retransmitted JOIN is safe)")
+  Component(fwd, "Data forwarder", "DATA frames", "Fire-and-forget star forwarding: unicast by dst node id, 0xFF = broadcast to room; NO buffering, NO acks; ~1200 B frame cap")
+  Component(live, "Liveness & GC", "KEEPALIVE / timers", "Expects keepalive ~10 s; GCs node after ~30 s silence, emits PEER_LEAVE; idle rooms reaped")
+  Component(clock, "Clock service", "TIME/PING/PONG", "Relay-anchored shared clock + RTT sampling for netpak_time()")
+  Component(guard, "Rate limiter", "per-token", "Frame/byte budgets per token; drops + counters, no amplification (responses <= request size until token proven)")
+  Component(obs, "Observability", "Prometheus + structured logs", "Rooms, nodes, forward rate, drop reasons; np64-relay --dev = localhost + verbose")
+}
+
+Container_Ext(clients, "NetPak endpoints", "ares NetClient instances; later, adapter firmware")
+Container_Ext(prom, "Prometheus", "scrapes /metrics")
+
+Rel(clients, udp, "UDP frames")
+Rel(udp, codec, "decode / encode")
+Rel(codec, sess, "Every frame: token check + addr re-pin")
+Rel(sess, ctl, "Control types (CREATE/JOIN/LEAVE/TIME/PING)")
+Rel(sess, fwd, "DATA")
+Rel(sess, guard, "Budget check first")
+Rel(ctl, rooms, "Room ops")
+Rel(ctl, clock, "TIME")
+Rel(rooms, udp, "Presence fanout")
+Rel(fwd, udp, "Forwarded DATA to peer addrs")
+Rel(live, rooms, "GC expired nodes/rooms")
+Rel(obs, prom, "/metrics")
+
+SHOW_LEGEND()
+@enduml

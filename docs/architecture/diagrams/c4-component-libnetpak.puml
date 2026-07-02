@@ -1,0 +1,40 @@
+@startuml c4-component-libnetpak
+!include <C4/C4_Component>
+
+title libnetpak — Components (C4 Level 3, runs inside the emulated N64)
+
+Container_Boundary(lib, "libnetpak (C, libdragon extension library)") {
+  Component(probe, "Probe & init", "netpak_detect / netpak_init", "Hardened probe: read MAGIC (open bus on stock console), sanity-check VERSION, write/read-back pattern in CMD_DATA. Init: program PI_BSD_DOM2_{LAT,PWD,PGS,RLS} to spec-pinned values, SET_IDENTITY, choose irq|poll mode")
+  Component(regs, "Register access layer", "io_read/io_write (registers), dma_read/dma_write (buffers)", "KSEG1 uncached access; cache writeback/invalidate discipline; 8-byte alignment invariants")
+  Component(irqh, "Cart-IRQ handler / poll pump", "register_CART_handler | netpak_poll()", "Reads IRQ_STATUS, W1C-acks, drains device RX into the RDRAM ring; no allocation in IRQ context")
+  Component(rxring, "RDRAM RX ring", "static pool", "Game-side ring the IRQ handler fills and netpak_recv() consumes at the game's own cadence; decouples IRQ timing from frame timing")
+  Component(cmd, "Command wrapper", "session_create/join/leave, peers, ping, time, stats", "Mailbox protocol: ARG*/CMD_DATA -> CMD -> poll CMD_STATUS or EVENT irq -> RES*")
+  Component(ch0, "ch0 - unreliable datagrams", "netpak_send/netpak_recv", "Default channel; UDP semantics end-to-end, matching the wire")
+  Component(ch1, "ch1 - reliable-ordered", "sliding window in the LIBRARY", "Small window, seq/ack, retransmit. Relay stays dumb; identical code path over a physical adapter")
+  Component(clock, "Time sync & RTT", "netpak_time()", "Relay-anchored shared clock + RTT stats - building blocks for lockstep or snapshot interpolation, no model imposed")
+  Component(ep, "Epoch watcher", "netpak_epoch()", "Surfaces loadstate/reconnect discontinuities so game netcode can resync")
+}
+
+Container_Ext(game, "Game code", "the homebrew title")
+Container_Ext(dev, "NetPak64 device", "registers at 0xA5F0_0000 (KSEG1)")
+Container_Ext(ld, "libdragon", "interrupts, DMA + cache helpers, timers")
+
+Rel(game, probe, "netpak_detect / netpak_init")
+Rel(game, cmd, "Sessions, peers")
+Rel(game, ch0, "netpak_send / netpak_recv")
+Rel(game, ch1, "flags=RELIABLE")
+Rel(game, clock, "netpak_time")
+Rel(game, ep, "netpak_epoch each frame")
+Rel(probe, regs, "")
+Rel(cmd, regs, "")
+Rel(ch0, regs, "TX_BUF DMA + doorbell; RX_WIN DMA + consume")
+Rel(ch1, ch0, "Layered on datagrams")
+Rel(irqh, regs, "IRQ_STATUS ack, RX drain")
+Rel(irqh, rxring, "Fills")
+Rel(ch0, rxring, "netpak_recv pops")
+Rel(regs, dev, "PI loads/stores/DMA", "emulated bus")
+Rel(irqh, ld, "register_CART_handler")
+Rel(regs, ld, "dma_read/dma_write, cache ops")
+
+SHOW_LEGEND()
+@enduml
