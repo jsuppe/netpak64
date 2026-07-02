@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(java -jar \"C:/Users/jonsu/AppData/Local/Temp/claude/C--Users-jonsu-dev-netpak64/28fef548-b409-4da3-bf83-bc5355e23dcb/scratchpad/plantuml.jar\" -tsvg docs/architecture/diagrams/*.puml)",
-      "Bash(awk '{print $NF, \"—\", $5}')"
-    ]
-  }
-}
