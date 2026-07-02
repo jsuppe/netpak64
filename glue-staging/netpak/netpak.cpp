@@ -48,6 +48,11 @@ auto NetPak::load(Node::Object parent) -> void {
   _netConfig.relay = relay ? relay : "loopback";
   _netConfig.room  = room ? room : "";
   _netConfig.name  = name ? name : "player";
+  _netConfig.trace = _logging;
+  //NP64_TEST_REBIND=<ms>: simulate NAT rebinds (new source port every N ms;
+  //relay token re-pin must heal them transparently). Test hook, default off.
+  const char* rb = std::getenv("NP64_TEST_REBIND");
+  _netConfig.testRebindMs = rb ? u32(std::atoi(rb)) : 0;
 
   node = parent->append<Node::Object>("NetPak64");
   log("device enabled: PI Dom2/Addr1 window 0x05f00000-0x05f0ffff (backend: %s)",

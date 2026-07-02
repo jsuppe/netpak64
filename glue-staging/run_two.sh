@@ -20,7 +20,9 @@ sleep 2
 openbox >/tmp/openbox.log 2>&1 &
 sleep 1
 
-"$RELAY" --dev >/tmp/relay.log 2>&1 &
+# RELAY_ARGS: extra relay flags (e.g. "--dev-loss 20" for the packet-loss soak)
+# NP64_TEST_REBIND: forwarded to the instances (NAT-rebind soak)
+"$RELAY" --dev ${RELAY_ARGS:-} >/tmp/relay.log 2>&1 &
 RELAYPID=$!
 sleep 1
 
@@ -28,6 +30,7 @@ launch_ares() {  # $1=instance-id $2=name
   mkdir -p "/tmp/home$1"
   HOME="/tmp/home$1" NP64_ENABLE=1 NP64_LOG=1 \
   NP64_RELAY=127.0.0.1:6464 NP64_ROOM=DEVROM NP64_NAME="$2" \
+  NP64_TEST_REBIND="${NP64_TEST_REBIND:-}" \
   /src/build/desktop-ui/ares \
     --no-file-prompt \
     --setting Input/Defocus=Allow \
