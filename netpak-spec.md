@@ -140,7 +140,7 @@ Both registers share the same bit positions.
 | `0x01` | `EINVAL_OPCODE` | Unknown or invalid `CMD` opcode |
 | `0x02` | `EBUSY` | `CMD` written while the FSM was already `BUSY` (busy re-entry, §4) |
 | `0x03` | `ENOTJOINED` | Session-scoped command issued with no active session |
-| `0x04` | `EALREADY` | `SESSION_CREATE`/`SESSION_JOIN` issued while already in a session |
+| `0x04` | `EALREADY` | **Reserved in v0.9** — `SESSION_CREATE`/`SESSION_JOIN` while in a session have *move semantics* instead (the relay implicitly leaves the current room first; see §5). Kept for implementations that later opt into strict membership |
 | `0x05` | `ENOPEER` | Target node id (e.g. for `PING`) not found in the peer table |
 | `0x06` | `ETIMEOUT` | Control-plane operation exhausted its retry budget (relay unreachable) |
 | `0x07` | `EBADARG` | Malformed argument (e.g. join code of the wrong length/alphabet) |
@@ -169,8 +169,8 @@ Commands execute asynchronously via the `CMD`/`ARG*`/`RES*`/`CMD_DATA` mailbox: 
 |---|---|---|---|---|
 | `0x00` | `NOP` | — | — | No-op; useful for driver liveness checks |
 | `0x01` | `SET_IDENTITY` | `CMD_DATA` = identity string (§5.1) | — | Called once during `netpak_init()` |
-| `0x02` | `SESSION_CREATE` | — | `RES0` = node id | `CMD_DATA[0:6]` holds the assigned join code on completion (§5.1) |
-| `0x03` | `SESSION_JOIN` | `CMD_DATA` = join code (§5.1) | `RES0` = node id | |
+| `0x02` | `SESSION_CREATE` | — | `RES0` = node id | `CMD_DATA[0:6]` holds the assigned join code on completion (§5.1). **Move semantics:** issued while in a session, the current room is implicitly left first |
+| `0x03` | `SESSION_JOIN` | `CMD_DATA` = join code (§5.1) | `RES0` = node id | Move semantics, as above. v0.9 relays treat JOIN as join-or-create (code knowledge = permission; no lobby) |
 | `0x04` | `SESSION_LEAVE` | — | — | |
 | `0x05` | `LIST_PEERS` | — | `RES0` = peer count | Peer entries in `CMD_DATA` (§5.1) |
 | `0x06` | `PING` | `ARG0` = target node id | `RES0` = RTT in **microseconds** (u32) | |

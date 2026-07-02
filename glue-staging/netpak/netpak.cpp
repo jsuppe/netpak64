@@ -95,6 +95,7 @@ auto NetPak::tick() -> void {
   if(!ares::runAhead()) {
     if(_net) {
       _core.setLink(_net->status() & np64::link::UP);
+      _core.setRelayRtt(_net->rttUs());
       _core.tick(_net->inbound(), _net->outbound());
     } else {
       _core.tick(_fromNet, _toNet);       //TX slot -> outbound; ingest inbound
