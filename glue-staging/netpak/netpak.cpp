@@ -37,6 +37,9 @@ auto NetPak::load(Node::Object parent) -> void {
   _logging = l && *l && *l != '0';
   const char* t = std::getenv("NP64_TEST_SAVESTATE");
   _testSavestate = t && *t && *t != '0';
+  const char* ti = std::getenv("NP64_TRACE_IO");
+  _traceIo = ti && *ti && *ti != '0';
+  _traceBudget = _traceIo ? 4000 : 0;
   _loggedMagicRead = false;
   _tickCount = 0;
   _testState.clear();

@@ -31,7 +31,7 @@ launch_ares() {  # $1=instance-id $2=name
   HOME="/tmp/home$1" NP64_ENABLE=1 NP64_LOG=1 \
   NP64_RELAY=127.0.0.1:6464 NP64_ROOM=DEVROM NP64_NAME="$2" \
   NP64_TEST_REBIND="${NP64_TEST_REBIND:-}" \
-  /src/build/desktop-ui/ares \
+  stdbuf -oL -eL /src/build/desktop-ui/ares \
     --no-file-prompt \
     --setting Input/Defocus=Allow \
     --setting Audio/Driver=None \

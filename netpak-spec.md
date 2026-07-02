@@ -209,6 +209,18 @@ struct PeerEntry {          // 24 bytes, 8-byte aligned
   already satisfied by this spec's §1 buffer conventions. Symptom of getting
   this wrong: silently reading/writing cart-ROM space; on ares specifically,
   reads return an address-echo pattern.
+- **Cache-line granularity trumps DMA granularity:** `data_cache_hit_invalidate`
+  requires **16-byte** address and length granularity (asserting otherwise —
+  a partial-line invalidate would destroy neighboring dirty data). Drivers
+  should pad all buffer transfers to 16 bytes, not the DMA-minimum 8. A trap
+  worth knowing: any payload that happens to be a multiple of 16 hides the bug.
+- **Guard every register access against PI busy:** the PI holds a bus write
+  in flight for hundreds of cycles; a register READ in that window returns the
+  write latch (not the register) and a second WRITE is dropped. libdragon's
+  `io_read`/`io_write` do not guard this. A register driver naturally emits
+  write→read pairs (`RX_CONSUME`→`RX_COUNT`, doorbell→`STATUS`), so wrap all
+  device register access with a PI-idle wait (`dma_wait()`), as the reference
+  driver does.
 - **Timeouts:** a ROM's clock (`get_ticks_us()`) is *emulated* time; relay
   round-trips happen in *host wall-clock* time, and emulation may run slower
   than realtime. Drivers should be generous with connection/handshake

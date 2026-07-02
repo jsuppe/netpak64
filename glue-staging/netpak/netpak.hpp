@@ -33,6 +33,8 @@ private:
   bool _enabled = false;
   bool _logging = false;
   bool _loggedMagicRead = false;
+  bool _traceIo = false;
+  u32  _traceBudget = 0;
   bool _testSavestate = false;
   u64  _tickCount = 0;
   std::vector<u8> _testState;
