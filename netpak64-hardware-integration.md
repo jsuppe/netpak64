@@ -167,7 +167,7 @@ Hardware has no savestates — the emulator's hardest determinism problem simply
 - **Run-ahead / rewind** were emulator-only concerns; not applicable.
 
 ## 9. Conformance: silicon must equal the spec
-`netpak-core`'s host tests and the deterministic loopback backend define golden behavior; the register-level spec *is* the conformance target. A **hardware conformance ROM** (extend `echo`/`chtest`) drives the register/side-effect/IRQ surface and asserts silicon matches spec — the physical analog of the in-emulator regression tests. Because the same `netpak-core` runs as firmware, divergence points to either the gateware front-end or a spec assumption that silicon breaks (i.e. a finding worth a spec revision).
+**Status: exists and passes for the HW-M1 scope** — `hardware-staging/conformance/` drives the Verilated RTL and `np64::DeviceCore` in lockstep (probe + sweep + 200k fuzz): 96,425 checks, 0 mismatches. The scope mask widens with the gateware; at HW-M2 it covers the full register map. `netpak-core`'s host tests and the deterministic loopback backend define golden behavior; the register-level spec *is* the conformance target. A **hardware conformance ROM** (extend `echo`/`chtest`) drives the register/side-effect/IRQ surface and asserts silicon matches spec — the physical analog of the in-emulator regression tests. Because the same `netpak-core` runs as firmware, divergence points to either the gateware front-end or a spec assumption that silicon breaks (i.e. a finding worth a spec revision).
 
 ## 10. Silicon-validation checklist (H1–H10 — retire before/at bring-up)
 

@@ -44,6 +44,28 @@ risk — the sim proved the block; these are wiring facts):
 2. Which addressing convention SC64's reg bus uses → set `ADDR_IS_BYTES`
    accordingly (both proven to work).
 
+## Differential conformance: RTL vs netpak-core — PASSING
+
+`conformance/{diff_harness.cpp, run_diff.sh}` is the executable conformance
+harness the ROADMAP promised, extended to a third implementation: it drives
+identical 16-bit accesses into the **Verilated RTL** and **np64::DeviceCore**
+(the ISC reference behind the ares device) in lockstep and diffs every read.
+
+```
+CONFORMANCE (RTL vs netpak-core, skeleton scope): 96425 checks, 0 mismatches
+DIFF: PASS
+```
+
+Scope is masked to what the skeleton implements (MAGIC/VERSION/CMD_DATA +
+unmapped gaps); at HW-M2 the mask widens to the full register map and this
+same binary becomes the gateware's acceptance test. Run: copy netpak-core
+(include/, src/) to `./netpak-core`, then `./conformance/run_diff.sh`.
+
+Sim-portability notes learned the hard way: Verilator silently ignores modport
+EXPRESSIONS (the stub now uses plain modports with driver-side gating; SC64's
+real interface keeps its expressions and Diamond handles them), and a comment
+line may not begin with the word "verilator" (parsed as a pragma).
+
 ## Build / test path (per hardware-integration §11.1)
 
 Sim is done (above). Next: drop the block + `n64_reg_bus.additions.md` into an
