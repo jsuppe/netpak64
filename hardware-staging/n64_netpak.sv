@@ -9,14 +9,13 @@
 // flashram — see n64_reg_bus.additions.md). The reg bus is 16-bit (halfword)
 // granular, which matches this device's AD16 register model exactly.
 //
-// ┌── CONFIRM against n64_dd.sv before building (2 items) ─────────────────┐
-// │ 1. Clock/reset port names — this uses `clk`/`reset`; match dd's actual │
-// │    names (likely a system clock + sync reset from n64_scb/top).        │
-// │ 2. reg_bus.address units — this assumes a BYTE address within the      │
-// │    window (offset table in bytes, bit[1] picks the big-endian half).   │
-// │    If SC64's reg bus is HALFWORD-addressed (one addr per 16-bit word),  │
-// │    set ADDR_IS_BYTES = 0 below. n64_dd.sv's register offsets disclose   │
-// │    which; a one-line sim of the probe sequence confirms it.            │
+// ┌── CONFIRMED against SC64's real n64_dd.sv (2026-07-03) ────────────────┐
+// │ 1. Clock/reset names: n64_dd uses `input clk, input reset` — matched.  │
+// │ 2. reg_bus.address is BYTE-addressed (dd regs at 11'h500/508/50C...),  │
+// │    so ADDR_IS_BYTES = 1 (the default) is correct for SC64.             │
+// │ HW-M2 note: dd also exposes `output logic irq` (comb OR of sources) —  │
+// │ the pattern for our IP3 line — and connects to n64_scb for the         │
+// │ firmware/mailbox side.                                                  │
 // └────────────────────────────────────────────────────────────────────────┘
 //
 // SPDX-License-Identifier: GPL-3.0-or-later  (SC64-derivative; the portable

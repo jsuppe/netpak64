@@ -10,7 +10,7 @@
 // the bench runs standalone with no SC64 tree.
 //
 // Run (verified green on Verilator 5.050 — see run_sim.sh):
-//   verilator --binary --timing -Wno-fatal -Wno-WIDTH -Wno-MULTIDRIVEN \
+//   $ verilator --binary --timing -Wno-fatal -Wno-WIDTH -Wno-MULTIDRIVEN \
 //     --top-module tb_n64_netpak tb_n64_netpak.sv n64_netpak.sv -o simv && ./obj_dir/simv
 // Or drop into SC64's fw/tests and run under Diamond's simulator.
 // (The MULTIDRIVEN lint is benign: it's the faithful reg_bus rdata mux + the
@@ -21,32 +21,26 @@
 // --- SIM STUB of SC64's n64_reg_bus (netpak side only) ----------------------
 // Mirrors the real interface's shape: 16-bit granular, per-peripheral select +
 // rdata mux, gated read/write into the peripheral modport.
+// SIM STUB of SC64's n64_reg_bus — Verilator-safe variant.
+// The REAL SC64 interface gates read/write and muxes rdata via modport
+// EXPRESSIONS (e.g. `.read(read && select)`, `.rdata(peripheral_rdata)`);
+// (Verilator does not honor those aliases; it drives/reads the raw signals)
+// so this stub uses plain modports and the DRIVER applies select-gating
+// before asserting rb.read/rb.write. The DUT source is unchanged either way —
+// it references reg_bus.read/write/address/wdata/rdata, which resolve
+// correctly against both this stub (plain) and SC64's real interface.
 interface n64_reg_bus ();
-    logic        netpak_select;
     logic        read;
     logic        write;
     logic [16:0] address;
     logic [15:0] rdata;
     logic [15:0] wdata;
-    logic [15:0] netpak_rdata;
-
-    // Gated strobes (avoids modport expressions for broad sim support).
-    logic        read_gated;
-    logic        write_gated;
-    assign read_gated  = read  && netpak_select;
-    assign write_gated = write && netpak_select;
-
-    // Read mux (real interface muxes each peripheral's rdata by its select).
-    always_comb begin
-        rdata = 16'h0000;
-        if (netpak_select) rdata = netpak_rdata;
-    end
 
     modport netpak (
-        input  .read(read_gated),
-        input  .write(write_gated),
+        input  read,
+        input  write,
         input  address,
-        output .rdata(netpak_rdata),
+        output rdata,
         input  wdata
     );
 endinterface
@@ -78,25 +72,21 @@ module tb_n64_netpak;
 
     task automatic pi_read(input logic [15:0] byte_off, output logic [15:0] data);
         @(negedge clk);
-        rb.address       = bus_addr(byte_off);
-        rb.netpak_select = 1'b1;
-        rb.read          = 1'b1;
+        rb.address = bus_addr(byte_off);
+        rb.read    = 1'b1;         // pre-gated: asserted only for our window
         #1;                        // combinational read settles
         data = rb.rdata;
-        rb.read          = 1'b0;
-        rb.netpak_select = 1'b0;
+        rb.read    = 1'b0;
     endtask
 
     task automatic pi_write(input logic [15:0] byte_off, input logic [15:0] data);
         @(negedge clk);
-        rb.address       = bus_addr(byte_off);
-        rb.wdata         = data;
-        rb.netpak_select = 1'b1;
-        rb.write         = 1'b1;
+        rb.address = bus_addr(byte_off);
+        rb.wdata   = data;
+        rb.write   = 1'b1;         // pre-gated: asserted only for our window
         @(posedge clk);            // registered write captures here
         #1;
-        rb.write         = 1'b0;
-        rb.netpak_select = 1'b0;
+        rb.write   = 1'b0;
     endtask
 
     task automatic check(input logic cond, input string what);
@@ -107,7 +97,7 @@ module tb_n64_netpak;
     logic [15:0] hi, lo, tmp;
 
     initial begin
-        rb.netpak_select = 0; rb.read = 0; rb.write = 0;
+        rb.read = 0; rb.write = 0;
         rb.address = '0; rb.wdata = '0;
         repeat (3) @(posedge clk);
         reset = 0;
