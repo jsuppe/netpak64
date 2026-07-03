@@ -26,7 +26,7 @@ The N64 cartridge connector carries the **PI (Peripheral Interface) bus**, aka t
 - NetPak64 and a real 64DD are **mutually exclusive** — the adapter answers where the DD would. On a stock console with no DD, that range is open bus, which is why the probe sequence (§spec 2.2) is a three-step handshake, not a bare MAGIC read.
 - The device asserts the **cartridge interrupt line** (surfaced as CAUSE IP3) — the same line the 64DD drives. ⚠ exact connector pin + assertion electricals are validation item H3.
 
-**The precedent to mine:** [SummerCart64](https://github.com/Polprzewodnikowy/SummerCart64) is fully open (hardware, ECP5 gateware, RP2040 firmware, CIC emulation) and *already interfaces Dom2/Addr1* for its 64DD emulation. It is the single most valuable reference and the fastest starting substrate. EverDrive-64 and 64drive are closed but establish that FPGA-class bus interfacing is the norm.
+**The precedent to mine:** [SummerCart64](https://github.com/Polprzewodnikowy/SummerCart64) (SC64) is fully open-source (GPL-3.0; Lattice ECP5-family FPGA gateware, an orchestration MCU, CIC emulation *in fabric*) and *already interfaces Dom2/Addr1* for its 64DD emulation. It is not just the best reference — it is the recommended substrate to **fork** (§3.1). EverDrive-64 and 64drive are closed but establish that FPGA-class bus interfacing is the norm.
 
 ## 3. The partition: bus-facing gateware + network MCU
 
@@ -52,6 +52,25 @@ This is the hardware analog of the emulator's core/glue split, and it falls dire
 Rejected sub-architecture (ii): thin bus↔SPI bridge with the MCU holding all state. The MCU cannot pre-stage read responses fast enough for arbitrary reads within the bus window; it puts the network stack in the latency path. Only viable if the bus is run at maximally slow Dom2 timing *and* every read is to a pre-published register — too fragile. Use (i).
 
 **Where the side-effect model pays off:** the spec's rule — *side effects (doorbell, W1C, `CMD` trigger, `RX_CONSUME`) fire when the low half of a word completes* — was written for exactly this bus. A 32-bit CPU store and a 16-bit PI DMA burst both present as two sequential half-writes; the gateware fires the side effect on the second (low) half regardless of origin. ⚠ that real PI DMA presents halves in high-then-low order with the expected auto-increment is validation item H5.
+
+## 3.1 Preferred substrate: fork SummerCart64 (assessed 2026-07-03)
+
+Research into [SummerCart64](https://github.com/Polprzewodnikowy/SummerCart64) (SC64) changes the recommendation from "build from parts" to **"fork SC64."** It is a fully open-source N64 flashcart whose architecture already solves most of §5–§7 and several §10 checklist items. Findings from its docs:
+
+- **License: GPL-3.0**, whole project (gateware + firmware + hardware). GPLv3 explicitly permits manufacture and sale (Kaico Labs already sells assembled units). Implication for our licensing (see §12): a NetPak64 SC64-derivative's **gateware + firmware fork is GPL-3.0**; `netpak-core` stays **independently ISC and hardware-agnostic** and is *imported* into the GPLv3 firmware (ISC → GPL is compatible; the copyleft boundary sits at the fork repo, never inside `netpak-core`). Keep SC64 code out of `netpak-core`; keep `netpak-core` standalone so firmware/other emulators can still use it under ISC.
+- **Bus decode is exactly our window shape.** SC64's memory-map doc states *"PI interface checks only upper 16 bits of address"* — i.e. decode granularity is 64 KiB windows. Our device is defined as precisely one such window (`0x05F0_xxxx`, upper-16 = `0x05F0`). Adding NetPak64 to SC64 gateware ≈ **adding one decode case** that routes `0x05F0` to a new register-file block. This is the "trivial decode" the spec was designed around, made real.
+- **It already occupies our address space.** SC64's 64DD emulation lives in `0x0500_0000–0x0600_0000` (Dom2/Addr1). Its DD registers sit near the *low* end; we sit at the *top* (`0x05F0`), consistent with the spec's clearance rationale and with NetPak↔DD mutual exclusion. A NetPak-SC64 uses that range for NetPak instead of (or mode-switched with) DD.
+- **The FPGA↔MCU boundary primitive already exists.** SC64 exposes a control-register block and a shared *"64DD/MCU buffer"* (1 KiB) between FPGA fabric and its microcontroller. That is exactly the hardware realization of our queue/mailbox boundary (§3) — `DeviceCore`'s rings map onto an FPGA-held buffer the MCU services, the same pattern SC64 already runs for DD.
+- **CIC is solved.** SC64 moved CIC emulation *into FPGA fabric*. Adopting SC64 **retires H4 entirely** — the one boot concern the emulator never faced is inherited done.
+- **Parts** (⚠ confirm exact numbers from the KiCad/interactive BOM in `sc64-extra-*.zip`, `hw/pcb`): Lattice **ECP5-family** FPGA (→ the fully open **yosys + nextpnr-ecp5 + Project Trellis** bitstream flow, so the fork builds with FOSS tools), 64 MiB SDRAM, 16 MiB QSPI flash, a microcontroller for USB/orchestration, USB-C, microSD.
+
+**What forking SC64 retires from the §10 checklist:** H2 (AD16 protocol — implemented in fabric), H3 (cart-IRQ path — it drives cart behavior on real consoles), H4 (CIC — solved in fabric), H6 (electricals — a shipping PCB), H7 (form factor — it *is* a cart); and it provides a **real-silicon-validated baseline for H1** (its DD timing works on stock consoles today). That leaves the genuinely NetPak-specific work:
+
+1. **Gateware**: a NetPak register-file block at `0x05F0` — fork SC64's DD block, reshape to `netpak-spec.md` §3, wire the low-half side-effect rule and the IP3 driver.
+2. **Firmware**: `netpak-core` (`DeviceCore` + `NetClient`) on SC64's MCU, behind the shared-buffer boundary.
+3. **The one real hardware gap — networking.** SC64 has **no network interface.** A fork needs a PCB revision adding a net chip (ESP32 for Wi-Fi, or W5500 for wired) hung off the FPGA or MCU. (A bring-up shortcut is to tunnel over SC64's existing USB to a host bridge — but that reintroduces the PC tether the whole project rejects, so it is a lab step only, never the product.)
+
+Net: SC64 shrinks the hardware effort from "interface the N64 bus" (the hard, risky part) to "add a register block + a network chip to a working, open cart." Recommended path is **fork SC64**; the from-parts Designs A/B in §7.2 remain as fallback if a fork proves impractical.
 
 ## 4. What runs where
 
@@ -92,11 +111,12 @@ The gateware drives the cartridge interrupt line, level-triggered: asserted when
 | **W5500 (WIZnet)** over SPI | Hardware UDP sockets, deterministic, no host stack | Wired Ethernet only | **First bring-up** — removes Wi-Fi as a variable during bus validation |
 | **RP2040 + ESP32** (SC64 pattern) | Reuses SC64's proven MCU + CIC firmware base | Two MCUs | Fastest path if starting from SC64 |
 
-### 7.2 Two candidate BOMs
-- **Design A — SC64-derived, Wi-Fi (fastest to "it works").** Lattice ECP5 (bus front-end + register file; reuse SC64 gateware structure) · RP2040 (orchestration + CIC emulation, runs `netpak-core`) · ESP32-C3 (Wi-Fi/UDP) over SPI. Leans on the most existing, open, N64-proven work.
-- **Design B — minimal, open-toolchain, wired (best for validation).** Lattice iCE40 UP5K (bus front-end + register file; fully open yosys/nextpnr flow) · RP2040 (CIC + `netpak-core`) · W5500 (wired hardware UDP). Wired + open-source FPGA flow makes it the cleanest platform to *characterize the bus* and retire H1/H2/H5 with the fewest confounds.
+### 7.2 Path options (SC64 fork is preferred — see §3.1)
+- **Preferred — fork SC64 + add a net chip.** Inherit the bus front-end, CIC, PCB, and form factor; add a NetPak gateware block + a network module (ESP32 Wi-Fi or W5500 wired). Smallest new-work surface; retires H2/H3/H4/H6/H7 and baselines H1. Gateware+firmware fork is GPL-3.0; `netpak-core` stays ISC (§3.1, §12).
+- **From-parts fallback A — SC64-*style*, Wi-Fi.** Lattice ECP5 (bus + register file) · MCU for orchestration + CIC · ESP32-C3 (Wi-Fi/UDP). Only if a direct fork proves impractical.
+- **From-parts fallback B — minimal, open-toolchain, wired.** Lattice iCE40 UP5K (open yosys/nextpnr flow) · RP2040 (CIC + `netpak-core`) · W5500 (wired UDP). A clean bench for characterizing the bus (H1/H2/H5) from scratch — but SC64 already gives a validated baseline, so this is only worthwhile if the fork path is abandoned.
 
-Recommendation: prototype on **Design B** to validate the bus and timing against silicon with minimum variables, then move to **Design A** for the untethered, demo-able unit.
+Recommendation: **fork SC64.** Use fallback B only as a bus-characterization bench if needed.
 
 ### 7.3 CIC (console boot lockout) — a real requirement the emulator never had
 Every genuine N64 cartridge contains a CIC lockout chip; the console's PIF runs a security handshake with it at boot and **halts if it fails.** A hardware adapter must present a compatible CIC response (a matching CIC variant, or an emulator such as the open UltraCIC-family implementations — SC64 emulates CIC on its RP2040). This is orthogonal to NetPak logic but is a hard gate on *booting at all*. ⚠ which CIC variant / emulation approach is H4.
@@ -117,12 +137,12 @@ Mirrors the emulator recon (integration §13, R1–R10). Each item is a physical
 | # | Item | Retires | How |
 |---|---|---|---|
 | **H1** | Dom2 bus timing on real silicon; validate/measure LAT/PWD/PGS/RLS | PROVISIONAL spec §2.1 | Logic-analyzer capture of a real Dom2 access (SC64 in DD mode, or bus tap) |
-| **H2** | AD16 latch order, strobe timing, burst/page auto-increment | Gateware RTL correctness | n64brew + SC64 gateware; scope confirm |
-| **H3** | Cart-IRQ connector pin + libdragon `register_CART_handler` fires on device assertion | IRQ path | Minimal FPGA that pulses IP3; ROM handler counts it |
-| **H4** | CIC variant / emulation needed to boot | Booting at all | SC64 CIC firmware; try boot with/without |
+| **H2** | AD16 latch order, strobe timing, burst/page auto-increment | Gateware RTL correctness | **Retired by SC64 fork** (in fabric); else n64brew + scope |
+| **H3** | Cart-IRQ connector pin + libdragon `register_CART_handler` fires on device assertion | IRQ path | **Largely retired by SC64 fork**; confirm SC64 can drive IP3 |
+| **H4** | CIC variant / emulation needed to boot | Booting at all | **Retired by SC64 fork** (CIC in fabric); else SC64 CIC firmware |
 | **H5** | Real PI DMA presents halves high-then-low with expected increment (validates low-half side-effect rule) | Side-effect model | DMA a known pattern to `TX_BUF`; scope the half sequence |
-| **H6** | Electricals: 3.3 V, bus loading, drive strength, series termination | Reliability | Signal-integrity bring-up |
-| **H7** | Physical attach point (cart slot vs. DD connector) + real-DD mutual exclusion | Form factor | Mechanical + bus arbitration check |
+| **H6** | Electricals: 3.3 V, bus loading, drive strength, series termination | Reliability | **Retired by SC64 PCB** (+ net-chip addition) |
+| **H7** | Physical attach point (cart slot vs. DD connector) + real-DD mutual exclusion | Form factor | **Retired by SC64 fork** (it is a cart) |
 | **H8** | Reset / NMI line behavior at the connector → `reset()`/epoch | Discontinuity handling | Scope reset; confirm epoch bump path |
 | **H9** | Achievable read cadence / page-mode behavior at chosen Dom2 timing | Throughput model | Sustained-read benchmark ROM |
 | **H10** | Max sustained TX/RX throughput vs. the ≤1 KB / 10–30 Hz design center and relay 0.4 MB/s room math | Design-center validity | `netbench` extended, on silicon |
@@ -139,7 +159,8 @@ Each milestone reuses an *existing, unmodified* ROM — that reuse is the proof.
 A NetPak64 hardware unit and an emulator instance **playing `netpong` in the same relay room** is the P4 headline demo — and it needs no new game code, because there isn't any to write.
 
 ## 12. Open questions
-- **CIC licensing/approach** — emulate (open UltraCIC-style) vs. harvest; affects manufacturability and legality.
+- **Licensing split (SC64 fork)** — adopting SC64 (§3.1) makes the hardware **gateware + firmware GPL-3.0** (SC64's license; a derivative must match). `netpak-core`, `libnetpak`, `np64-relay`, and the spec stay **ISC** and standalone; `netpak-core` is imported into the GPLv3 firmware (compatible). Decision to ratify: accept this dual posture (ISC portable core + GPL-3.0 hardware fork) — the pragmatic and legal reading. Do **not** pull SC64 code into `netpak-core`.
+- **CIC** — retired if forking SC64 (CIC emulation is in its FPGA fabric). Only an open question on a from-parts build.
 - **Attach form factor** — top cart slot (simplest, blocks the game cart — so this is a *networked-homebrew-only* cart, which is the actual use case) vs. a pass-through. A NetPak64 unit is itself the cartridge running a `libnetpak` game; it does not sit alongside another cart. Worth stating in the proposal's non-goals.
 - **Single-MCU vs. split** — can one ESP32 be both `netpak-core` host and Wi-Fi stack, with only a CPLD (not full FPGA) for the bus front-end? Depends on whether a CPLD-scale part can hold the register-file shadow + meet H2 timing. Attractive for cost; gated on H1/H2.
 - **Provisional Dom2 values** — H1 may let them go *faster* (more throughput) or force them slower; either way the spec §2.1 table gets replaced with measured numbers and the PROVISIONAL marker cleared.

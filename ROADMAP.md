@@ -99,7 +99,8 @@ Status legend: ☐ not started · ▶ in progress · ✅ done
 - Hosting for the relay (own VPS vs. cloud region) and whether a public community relay is a goal.
 - Master-server/lobby browser (à la N64-NetLib) vs. join codes only.
 - Project name (working title only so far).
-- ~~License~~ — **provisionally resolved: ISC** (matches ares, the primary consumer). Applied to `netpak-core` 2026-07-02. Revisit before any public release if a more permissive license is preferred; trivial to change while repos are private/small.
+- ~~License~~ — **provisionally resolved: ISC** for the software (matches ares, the primary consumer). Applied to `netpak-core` 2026-07-02. **Hardware caveat (2026-07-03):** if the physical adapter forks SummerCart64 (recommended, `netpak64-hardware-integration.md` §3.1), that fork's **gateware + firmware are GPL-3.0** (SC64's license). Clean split: `netpak-core`/`libnetpak`/`np64-relay`/spec stay ISC and standalone; `netpak-core` is imported into the GPLv3 firmware (compatible). Don't merge SC64 code into `netpak-core`.
+- Hardware substrate — **fork SC64** vs. build from parts. Assessed 2026-07-03: fork SC64 (open GPL-3.0 flashcart; already decodes Dom2/Addr1 with 64 KiB-window granularity, CIC in fabric, shipping PCB). Retires validation items H2/H3/H4/H6/H7; remaining new work = a NetPak gateware register block + `netpak-core` firmware + **adding a network chip** (SC64 has none — the one real PCB change). See hardware doc §3.1.
 
 ## Non-goals reminder (v1, from netpak64-proposal.md §2)
 
