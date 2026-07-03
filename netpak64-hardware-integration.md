@@ -206,7 +206,7 @@ Goal: a forked `n64_netpak.sv` answers the probe in the `0x05F0` window, and the
 2. Read the block-interface contract in `n64_pi.sv`, `n64_reg_bus.sv`, `n64_scb.sv`, and especially `n64_dd.sv` (the template): how a peripheral block receives address/read/write/data and drives the cart IRQ.
 3. Write minimal `n64_netpak.sv`: in the `0x05F0` window return `MAGIC=0x4E503634`, `VERSION=0`, and a small `CMD_DATA` scratch RAM that reads back writes — 16-bit granular, big-endian, high-half-first (spec §3).
 4. Add the `0x05F0` decode route in `n64_reg_bus.sv`; instantiate the block in `n64_top.sv`.
-5. **Simulate** the exact probe sequence (read MAGIC → read VERSION → write+read `CMD_DATA`) in a testbench (extend `fw/tests`; Diamond sim, or open iverilog/Verilator). Green sim = the bitstream is known-good *before* it touches the cart. This is the whole risk mitigation.
+5. **Simulate** the exact probe sequence (read MAGIC → read VERSION → write+read `CMD_DATA`) in a testbench. Green sim = the bitstream is known-good *before* it touches the cart — the whole risk mitigation. **Done:** `hardware-staging/{n64_netpak.sv, tb_n64_netpak.sv, run_sim.sh}` — the skeleton block + a Verilator bench that passes (`NP64_PROBE: DETECTED`, `TB: PASS`) in both addressing conventions.
 
 **Phase B — flash + real console (USB, reversible, no mod):**
 6. `sc64deployer firmware backup sc64-stock-backup.bin` — your restore point.

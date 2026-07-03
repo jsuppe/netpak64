@@ -15,22 +15,42 @@ HW-M1 breakdown) for the full design.
 - **`n64_reg_bus.additions.md`** — exact add-only edits to SC64's
   `fw/rtl/n64/n64_reg_bus.sv` (declare `netpak_select`/`netpak_rdata`, add the
   modport + read mux term) plus where to drive `netpak_select` in the PI decode.
+- **`tb_n64_netpak.sv`** + **`run_sim.sh`** — the Phase A step-5 probe
+  simulation and its runner.
 
-## Status: skeleton, not yet built or simulated
+## Status: skeleton, logic SIMULATED GREEN (not yet on hardware)
 
-This is HW-M1 Phase A step 3 material — a starting point to review against
-SC64's actual `n64_dd.sv` and then simulate. **Two things to confirm from
-`n64_dd.sv` before building** (both flagged inline):
+`tb_n64_netpak.sv` drives the full spec §2.2 probe (read MAGIC → read VERSION →
+write+read CMD_DATA, + an unmapped-reads-0xFFFF check) against the block and
+asserts `NP64_PROBE: DETECTED`. **Verified on Verilator 5.050, `TB: PASS` in
+BOTH addressing conventions** (`ADDR_IS_BYTES` = 1 and 0) — so the register/
+probe logic is correct regardless of which SC64 turns out to use.
+
+```
+$ ./run_sim.sh
+NP64 probe sim (ADDR_IS_BYTES=1):
+  ok:   MAGIC == 'NP64'
+  ok:   VERSION major == 0
+  ok:   CMD_DATA reads back written pattern
+  ok:   unmapped offset reads 0xFFFF
+  ok:   CMD_DATA second cell independent
+NP64_PROBE: DETECTED
+TB: PASS
+```
+
+**Still to confirm from `n64_dd.sv` at integration** (neither is a block-logic
+risk — the sim proved the block; these are wiring facts):
 1. Exact clock/reset port names.
-2. Whether `reg_bus.address` is byte- or halfword-addressed (`ADDR_IS_BYTES`
-   in `n64_netpak.sv`). A one-line sim of the probe sequence settles it.
+2. Which addressing convention SC64's reg bus uses → set `ADDR_IS_BYTES`
+   accordingly (both proven to work).
 
-## Build / test path (per §11.1)
+## Build / test path (per hardware-integration §11.1)
 
-Simulate first (extend SC64's `fw/tests`, or iverilog/Verilator) — green sim =
-known-good bitstream *before* it touches your SC64. Then build via SC64's
-Diamond/Docker flow and flash over USB (`sc64deployer firmware update`, after a
-`firmware backup`). No hardware mod; reversible.
+Sim is done (above). Next: drop the block + `n64_reg_bus.additions.md` into an
+SC64 fork, build the bitstream via SC64's Diamond/Docker flow, back up stock
+firmware (`sc64deployer firmware backup`), flash over USB
+(`sc64deployer firmware update`), and confirm the unmodified `probe.z64`
+prints `DETECTED` on a real console. No hardware mod; reversible.
 
 ## Licensing
 

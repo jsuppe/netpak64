@@ -22,15 +22,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later  (SC64-derivative; the portable
 // logic lives in netpak-core under ISC — this thin bus block is fork-local.)
 
-module n64_netpak (
+module n64_netpak #(
+    // Set to 0 if the reg bus presents a halfword address (one address per
+    // 16-bit transfer) instead of a byte address. See CONFIRM item 2. Exposed
+    // as a parameter so the testbench can prove the block in BOTH conventions.
+    parameter bit ADDR_IS_BYTES = 1'b1
+) (
     input logic clk,
     input logic reset,
     n64_reg_bus.netpak reg_bus
 );
-
-    // Set to 0 if the reg bus presents a halfword address (one address per
-    // 16-bit transfer) instead of a byte address. See CONFIRM item 2.
-    localparam bit ADDR_IS_BYTES = 1'b1;
 
     // --- Spec §3 constants ---------------------------------------------------
     localparam logic [31:0] MAGIC_VALUE   = 32'h4E50_3634;  // "NP64"
