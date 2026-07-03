@@ -38,11 +38,12 @@ NP64_PROBE: DETECTED
 TB: PASS
 ```
 
-**Still to confirm from `n64_dd.sv` at integration** (neither is a block-logic
-risk — the sim proved the block; these are wiring facts):
-1. Exact clock/reset port names.
-2. Which addressing convention SC64's reg bus uses → set `ADDR_IS_BYTES`
-   accordingly (both proven to work).
+**Wiring facts — CONFIRMED against SC64's real `n64_dd.sv` (2026-07-03):**
+1. Clock/reset names are `clk`/`reset` — the skeleton matches.
+2. SC64's reg bus is **byte-addressed** (dd regs at `0x500/0x508/0x50C`), so
+   `ADDR_IS_BYTES = 1` (the default) is correct; the halfword mode remains
+   proven as a fallback. Bonus: dd exposes `output logic irq` — the IP3
+   pattern for HW-M2.
 
 ## Differential conformance: RTL vs netpak-core — PASSING
 
