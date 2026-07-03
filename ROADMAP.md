@@ -70,7 +70,8 @@ Status legend: ☐ not started · ▶ in progress · ✅ done
   *Exit: an outside homebrew dev can go from README to networked ROM in under an hour.* **Assessment: met** — README walks requirements → copy-an-example → Makefile snippet → env-var run loop; the two-command dev loop and 7 working examples make the first networked ROM a copy-and-edit exercise. Formal validation = hand it to an outside dev (P4-adjacent).
 
 - **☐ P4 — Stretch**
-  DTLS; TCP/TLS fallback; ares settings UI and upstream RFC; CI (netpak-core unit tests + headless protocol integration tests); port to a second emulator; homebrew ROM-header auto-attach registration; firmware bring-up when the adapter project is ready.
+  DTLS; TCP/TLS fallback; ares settings UI and upstream RFC; CI (netpak-core unit tests + headless protocol integration tests); port to a second emulator; homebrew ROM-header auto-attach registration; firmware/hardware bring-up when the adapter project is ready.
+  - **Hardware prototype**: design study written — `netpak64-hardware-integration.md` (v0.1, 2026-07-03). Companion to the ares-integration doc: gateware/MCU partition (the hardware analog of the emulation-thread/net-thread split), AD16 bus front-end, two candidate BOMs (SC64-derived Wi-Fi; iCE40+W5500 wired-for-validation), CIC boot-lockout requirement, an H1–H10 silicon-validation checklist (mirrors recon R1–R10; Dom2 timing is H1/#1 risk), and a bring-up order (HW-M1…M4) where each milestone reuses an *unmodified* existing ROM. Headline demo: a hardware unit + an emulator instance playing `netpong` in the same relay room — no new game code. **Nothing built/silicon-validated yet**; SC64 (open-source, already decodes Dom2/Addr1) is the recommended substrate.
 
 ## Build environment (decided + verified 2026-07-02)
 

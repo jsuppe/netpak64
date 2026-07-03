@@ -31,6 +31,9 @@ implementations live in sibling repos:
   phases, risks (v0.2).
 - [`netpak64-ares-integration.md`](netpak64-ares-integration.md) — emulator
   integration design: threading, IRQ, savestates (v0.1).
+- [`netpak64-hardware-integration.md`](netpak64-hardware-integration.md) — P4
+  physical-adapter design study: gateware/MCU partition, bus interface, BOMs,
+  silicon-validation checklist (v0.1, design-only — nothing built yet).
 - [`docs/architecture/`](docs/architecture/) — C4 L1–L3 views, N64 platform
   primer, sequence diagrams, bibliography (browsable site in `docs/web/`).
 - [`docs/recon-ares-v148.md`](docs/recon-ares-v148.md) — the R1–R10 recon
