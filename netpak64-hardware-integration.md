@@ -197,6 +197,28 @@ Each milestone reuses an *existing, unmodified* ROM — that reuse is the proof.
 
 A NetPak64 hardware unit and an emulator instance **playing `netpong` in the same relay room** is the P4 headline demo — and it needs no new game code, because there isn't any to write.
 
+## 11.1 HW-M1 task breakdown (the cheap first step on an SC64)
+
+Goal: a forked `n64_netpak.sv` answers the probe in the `0x05F0` window, and the **unmodified `probe.z64`** prints `NP64_PROBE: DETECTED` on a real N64 via an existing SummerCart64. **No hardware modification, no soldering, no damage** — the FPGA bitstream reaches the SC64 through its normal USB firmware-update path (`sc64deployer firmware update`), and is fully reversible via `firmware backup`/restore. The risk is a *bad* bitstream (bricking has no documented USB recovery), which the simulate-before-flash order below is designed to eliminate.
+
+**Phase A — RTL + simulation (no hardware touched, zero risk):**
+1. Fork SC64 → `sc64-netpak`; stand up its Diamond build (`./docker_build.sh`; obtain the free MAC-tied Lattice license).
+2. Read the block-interface contract in `n64_pi.sv`, `n64_reg_bus.sv`, `n64_scb.sv`, and especially `n64_dd.sv` (the template): how a peripheral block receives address/read/write/data and drives the cart IRQ.
+3. Write minimal `n64_netpak.sv`: in the `0x05F0` window return `MAGIC=0x4E503634`, `VERSION=0`, and a small `CMD_DATA` scratch RAM that reads back writes — 16-bit granular, big-endian, high-half-first (spec §3).
+4. Add the `0x05F0` decode route in `n64_reg_bus.sv`; instantiate the block in `n64_top.sv`.
+5. **Simulate** the exact probe sequence (read MAGIC → read VERSION → write+read `CMD_DATA`) in a testbench (extend `fw/tests`; Diamond sim, or open iverilog/Verilator). Green sim = the bitstream is known-good *before* it touches the cart. This is the whole risk mitigation.
+
+**Phase B — flash + real console (USB, reversible, no mod):**
+6. `sc64deployer firmware backup sc64-stock-backup.bin` — your restore point.
+7. `./docker_build.sh release` → forked `sc64-firmware-{ver}.bin` (bundles the new bitstream). ⚠ confirm the FPGA bitstream is carried in this package and that self-built (unsigned) firmware flashes — expected yes (you build the release yourself), but verify on first run.
+8. `sc64deployer firmware update sc64-firmware-{ver}.bin` — USB only.
+9. Load `probe.z64` via the SC64's normal ROM path; confirm `NP64_PROBE: DETECTED` on screen / ISViewer. **HW-M1 done — real bus, real silicon (baselines H1).**
+10. `sc64deployer firmware update sc64-stock-backup.bin` — SC64 is a normal flashcart again.
+
+**Why not a dev board:** a bare MachXO2 dev board is freely reflashable but is **not wired to the N64 cart bus**, so it cannot run `probe.z64` on a real console without you first building a cart-edge interface (~50-pin breakout/donor-cart wiring) — strictly *more* work than USB-flashing the SC64 you already own. The dev board's only edge is a zero-stakes flashing sandbox, which Phase-A simulation covers better. Use the SC64.
+
+**Confirm before Phase B:** SC64 hardware revision (bitstream must match your board), that the release `.bin` carries + flashes the FPGA bitstream, and the Lattice Diamond license.
+
 ## 12. Open questions
 - **Licensing split (SC64 fork)** — adopting SC64 (§3.1) makes the hardware **gateware + firmware GPL-3.0** (SC64's license; a derivative must match). `netpak-core`, `libnetpak`, `np64-relay`, and the spec stay **ISC** and standalone; `netpak-core` is imported into the GPLv3 firmware (compatible). Decision to ratify: accept this dual posture (ISC portable core + GPL-3.0 hardware fork) — the pragmatic and legal reading. Do **not** pull SC64 code into `netpak-core`.
 - **CIC** — retired if forking SC64 (CIC emulation is in its FPGA fabric). Only an open question on a from-parts build.
