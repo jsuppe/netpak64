@@ -68,7 +68,7 @@ Research into [SummerCart64](https://github.com/Polprzewodnikowy/SummerCart64) (
 
 1. **Gateware**: a NetPak register-file block at `0x05F0` — fork SC64's DD block, reshape to `netpak-spec.md` §3, wire the low-half side-effect rule and the IP3 driver.
 2. **Firmware**: `netpak-core` (`DeviceCore` + `NetClient`) on SC64's MCU, behind the shared-buffer boundary.
-3. **The one real hardware gap — networking.** SC64 has **no network interface.** A fork needs a PCB revision adding a net chip (ESP32 for Wi-Fi, or W5500 for wired) hung off the FPGA or MCU. (A bring-up shortcut is to tunnel over SC64's existing USB to a host bridge — but that reintroduces the PC tether the whole project rejects, so it is a lab step only, never the product.)
+3. **The one real hardware gap — networking.** SC64 has **no network interface.** A fork needs a PCB revision adding a net module hung off the FPGA. **Recommended (2026-07-04): one ESP32 covers both wireless and wired.** Its built-in Wi-Fi handles untethered play; an *optional* onboard W5500 handles a wired uplink through ESP-IDF's official `esp_eth` SPI-Ethernet driver (Espressif ships a supported W5500 MAC/PHY component — confirmed from their own docs). One MCU, one firmware image, no second chip family — see §3.2 for the dual-uplink shape. (A bring-up shortcut is to tunnel over SC64's existing USB to a host bridge — but that reintroduces the PC tether the whole project rejects, so it is a lab step only, never the product.)
 
 Net: SC64 shrinks the hardware effort from "interface the N64 bus" (the hard, risky part) to "add a register block + a network chip to a working, open cart." Recommended path is **fork SC64**; the from-parts Designs A/B in §7.2 remain as fallback if a fork proves impractical.
 
@@ -91,7 +91,9 @@ SC64's N64-side gateware lives in `fw/rtl/n64/` as per-peripheral SystemVerilog 
 **Where `netpak-core` runs — the one real design fork.** SC64's firmware core is sized for flashcart servicing, not a UDP stack, and (⚠ to confirm) may be a small soft core. The **low-risk recommendation** is therefore *not* to run `netpak-core` on SC64's existing core, but on the **added network module**:
 
 - **MachXO2 (`n64_netpak.sv`)**: bus-facing register file + ring-head shadow + IP3 + a FIFO bridge — that's all.
-- **Added network module (ESP32 — 240 MHz dual-core + Wi-Fi, or RP2040+W5500)**: runs `netpak-core` (`DeviceCore` FSM + rings + `NetClient`), bridged to `n64_netpak.sv` over SPI (or SC64's SCB). This *is* the §3 partition — FPGA owns bus-visible state, the module owns network — and it keeps the gateware change minimal and the SERV-is-slow risk off the table.
+- **Added network module — ESP32 (240 MHz dual-core, built-in Wi-Fi) with an optional onboard W5500 for wired**: runs `netpak-core` (`DeviceCore` FSM + rings + `NetClient`), bridged to `n64_netpak.sv` over one SPI bus and, when the W5500 is populated, to it over a second SPI bus (ESP32 has GPIO/peripherals to spare for both — not a stretch). This *is* the §3 partition — FPGA owns bus-visible state, the module owns network — and it keeps the gateware change minimal and the SERV-is-slow risk off the table.
+
+**Dual uplink, one MCU, no HAL branching.** `netpak-core`'s socket HAL doesn't need to know which physical uplink is active — Wi-Fi and the W5500 (via `esp_eth`) both resolve to ordinary lwIP sockets under ESP-IDF. Suggested default firmware policy (cheap to change later): prefer wired if the W5500 reports link-up, else fall back to configured Wi-Fi.
 
 An optimization to evaluate later (if SC64's core has headroom): collapse the network module into SC64's existing compute. Default to the separate module; don't gate the prototype on that analysis.
 
@@ -99,14 +101,14 @@ An optimization to evaluate later (if SC64's core has headroom): collapse the ne
 
 **Bitstream build.** Lattice Diamond via SC64's Docker flow (free MAC-tied license). The gateware delta is one new `.sv` block + one decode line — small, and it composes with SC64's existing verification/test harness (`fw/tests`).
 
-**The one PCB change.** SC64 has no network interface, so a board revision (or a bring-up bodge onto a dev unit's headers) adds the ESP32/W5500 and wires SPI to the FPGA. Everything else — bus, CIC, SDRAM, power, form factor — is inherited.
+**The one PCB change.** SC64 has no network interface, so a board revision (or a bring-up bodge onto a dev unit's headers) adds the ESP32 (with its Wi-Fi antenna) plus an optional W5500 + magnetics/RJ45 for wired, and wires both to the FPGA. Everything else — bus, CIC, SDRAM, power, form factor — is inherited. **Power note:** with both the Wi-Fi radio and the W5500 populated on the same rail, the added load — including ESP32 Wi-Fi TX current bursts — is larger than either alone; confirm the existing SC64 3.3V regulator's headroom (open item, §12).
 
 **Fork repo shape** (keeps the GPL/ISC boundary clean, §12):
 ```
 sc64-netpak/                 # GPL-3.0 fork of SummerCart64
 ├── fw/rtl/n64/n64_netpak.sv     # new block (forked from n64_dd.sv)
 ├── fw/rtl/n64/n64_reg_bus.sv    # +1 decode route
-├── net-module/                  # ESP32/RP2040 firmware: imports netpak-core (ISC) + socket HAL
+├── net-module/                  # ESP32 firmware: imports netpak-core (ISC) + Wi-Fi/esp_eth socket HAL
 └── hw/                          # PCB rev adding the net chip
 netpak-core/                 # unchanged, ISC, standalone — imported, never forked-in
 ```
@@ -125,7 +127,7 @@ netpak-core/                 # unchanged, ISC, standalone — imported, never fo
 | CIC boot-lockout response | Small MCU / dedicated core (§7.3) | Not NetPak logic; a console-boot requirement |
 | Wire protocol / relay | `np64-relay`, unchanged | Same binary, same rooms |
 
-The only genuinely new software is a thin socket HAL implementing `netpak-core`'s backend interface on the chosen net chip (lwIP/ESP-IDF sockets, or the W5500's hardware sockets). `backend_udp.cpp` already defines the shape.
+The only genuinely new software is a thin socket HAL implementing `netpak-core`'s backend interface on ESP-IDF — lwIP sockets over either uplink (native Wi-Fi, or the W5500 through `esp_eth`), so one HAL serves both without branching on which physical link is active. `backend_udp.cpp` already defines the shape.
 
 ## 5. Bus interface (the hard part)
 
@@ -146,16 +148,16 @@ The gateware drives the cartridge interrupt line, level-triggered: asserted when
 ### 7.1 Net chip options
 | Option | Pros | Cons | Best for |
 |---|---|---|---|
-| **ESP32 / ESP32-C3** | Wi-Fi + full IP stack on one chip; can *be* the MCU (runs `netpak-core` + net) | Wi-Fi latency/jitter; RF layout | Untethered play; fewest parts |
-| **W5500 (WIZnet)** over SPI | Hardware UDP sockets, deterministic, no host stack | Wired Ethernet only | **First bring-up** — removes Wi-Fi as a variable during bus validation |
-| **RP2040 + ESP32** (SC64 pattern) | Reuses SC64's proven MCU + CIC firmware base | Two MCUs | Fastest path if starting from SC64 |
+| **ESP32 / ESP32-S3** | Wi-Fi + full IP stack on one chip; can *be* the MCU (runs `netpak-core` + net); official ESP-IDF `esp_eth` support for W5500 lets the *same* chip add a wired uplink | RF layout; combined Wi-Fi+W5500 power draw needs headroom check | **Recommended (§3.2): dual uplink from one chip** |
+| **W5500 (WIZnet)** over SPI | Hardware UDP/TCP sockets, deterministic, no software stack for that link | Wired-only by itself | Paired with the ESP32 above for the wired leg; or standalone for a wired-only bring-up bench |
+| **RP2040 + ESP32** (SC64 pattern) | Reuses SC64's proven MCU + CIC firmware base | Two MCUs, and doesn't add anything the single ESP32 path above doesn't already cover | Only if SC64's own core needs offloading independent of networking |
 
 ### 7.2 Path options (SC64 fork is preferred — see §3.1)
-- **Preferred — fork SC64 + add a net chip.** Inherit the bus front-end, CIC, PCB, and form factor; add a NetPak gateware block + a network module (ESP32 Wi-Fi or W5500 wired). Smallest new-work surface; retires H2/H3/H4/H6/H7 and baselines H1. Gateware+firmware fork is GPL-3.0; `netpak-core` stays ISC (§3.1, §12).
-- **From-parts fallback A — larger FPGA, Wi-Fi.** Lattice ECP5 (bus + register file; more headroom than SC64's MachXO2 if a soft core must also run `netpak-core`) · MCU for orchestration + CIC · ESP32-C3 (Wi-Fi/UDP). Only if a direct fork proves impractical.
-- **From-parts fallback B — minimal, fully-open-toolchain, wired.** Lattice iCE40 UP5K (open **yosys/nextpnr** flow — genuinely FOSS, unlike SC64's Diamond dependency) · RP2040 (CIC + `netpak-core`) · W5500 (wired UDP). A clean bench for characterizing the bus (H1/H2/H5) from scratch, and the answer if the **Diamond-license or GPL-3.0 dependency is a dealbreaker** — but SC64 already gives a real-silicon-validated baseline, so this is only worthwhile if the fork path is rejected.
+- **Preferred — fork SC64 + add an ESP32 net module (dual uplink).** Inherit the bus front-end, CIC, PCB, and form factor; add a NetPak gateware block + one ESP32 module giving both built-in Wi-Fi and an optional wired uplink via W5500 (§3.2). Smallest new-work surface; retires H2/H3/H4/H6/H7 and baselines H1. Gateware+firmware fork is GPL-3.0; `netpak-core` stays ISC (§3.1, §12).
+- **From-parts fallback A — larger FPGA, Wi-Fi.** Lattice ECP5 (bus + register file; more headroom than SC64's MachXO2 if a soft core must also run `netpak-core`) · MCU for orchestration + CIC · ESP32 (Wi-Fi, optionally + W5500 as above). Only if a direct fork proves impractical.
+- **From-parts fallback B — minimal, fully-open-toolchain, wired-only bench.** Lattice iCE40 UP5K (open **yosys/nextpnr** flow — genuinely FOSS, unlike SC64's Diamond dependency) · RP2040 (CIC + `netpak-core`) · W5500 (wired UDP, no Wi-Fi). A clean bench for characterizing the bus (H1/H2/H5) from scratch, and the answer if the **Diamond-license or GPL-3.0 dependency is a dealbreaker** — but SC64 already gives a real-silicon-validated baseline, and this path doesn't give both uplinks, so it's only worthwhile if the fork path is rejected.
 
-Recommendation: **fork SC64.** Use fallback B only as a bus-characterization bench if needed.
+Recommendation: **fork SC64 with the dual-uplink ESP32 module.** Use fallback B only as a bus-characterization bench if needed.
 
 ### 7.3 CIC (console boot lockout) — a real requirement the emulator never had
 Every genuine N64 cartridge contains a CIC lockout chip; the console's PIF runs a security handshake with it at boot and **halts if it fails.** A hardware adapter must present a compatible CIC response (a matching CIC variant, or an emulator such as the open UltraCIC-family implementations — SC64 emulates CIC on its RP2040). This is orthogonal to NetPak logic but is a hard gate on *booting at all*. ⚠ which CIC variant / emulation approach is H4.
@@ -224,6 +226,8 @@ Goal: a forked `n64_netpak.sv` answers the probe in the `0x05F0` window, and the
 - **CIC** — retired if forking SC64 (CIC emulation is in its FPGA fabric). Only an open question on a from-parts build.
 - **Attach form factor** — top cart slot (simplest, blocks the game cart — so this is a *networked-homebrew-only* cart, which is the actual use case) vs. a pass-through. A NetPak64 unit is itself the cartridge running a `libnetpak` game; it does not sit alongside another cart. Worth stating in the proposal's non-goals.
 - **Single-MCU vs. split** — can one ESP32 be both `netpak-core` host and Wi-Fi stack, with only a CPLD (not full FPGA) for the bus front-end? Depends on whether a CPLD-scale part can hold the register-file shadow + meet H2 timing. Attractive for cost; gated on H1/H2.
+- **Combined power budget (dual uplink)** — populating both the ESP32's Wi-Fi radio and an onboard W5500 adds more load to the existing SC64 3.3V rail than either alone, and Wi-Fi TX is bursty (peak current well above idle). Needs a real measurement before committing a PCB rev; treat as open until checked (see the wire diagram's confirmed-vs-open list).
+- **Uplink selection policy** — prefer-wired-if-linked-else-Wi-Fi is the suggested default (§3.2); whether to make this user-configurable (vs. always-automatic) is a small UX decision, not an architectural one.
 - **Provisional Dom2 values** — H1 may let them go *faster* (more throughput) or force them slower; either way the spec §2.1 table gets replaced with measured numbers and the PROVISIONAL marker cleared.
 
 ---

@@ -171,6 +171,7 @@
   svg .block-inherited { fill: var(--inherited-fill); stroke: var(--inherited); }
   svg .block-new { fill: var(--new-fill); stroke: var(--new); }
   svg .block-mixed { fill: var(--inherited-fill); stroke: var(--new); stroke-dasharray: 5 3; }
+  svg .block-optional { fill: var(--new-fill); stroke: var(--new); stroke-dasharray: 4 3; opacity: 0.85; }
   svg .block-context { fill: var(--surface-2); stroke: var(--rule); }
   svg .bus-inherited { stroke: var(--inherited); stroke-width: 4; fill: none; }
   svg .bus-new { stroke: var(--new); stroke-width: 3; fill: none; }
@@ -205,6 +206,7 @@
   .sw-new { background: var(--new); }
   .sw-inherited { background: var(--inherited); }
   .sw-mixed { background: repeating-linear-gradient(90deg, var(--new) 0 6px, var(--inherited-fill) 6px 10px); }
+  .sw-optional { background: repeating-linear-gradient(90deg, var(--new) 0 5px, var(--new-fill) 5px 9px); border: 1px solid var(--new); }
   .sw-power { background: repeating-linear-gradient(90deg, var(--ink-dim) 0 6px, transparent 6px 10px); }
   .sw-gnd { background: var(--ink-dim); }
   .legend-item strong { display: block; color: var(--ink); font-weight: 600; }
@@ -249,6 +251,7 @@
   .pill-new { background: var(--new-fill); color: var(--new); }
   .pill-inherited { background: var(--inherited-fill); color: var(--inherited); }
   .pill-mixed { background: linear-gradient(90deg, var(--new-fill), var(--inherited-fill)); color: var(--ink); }
+  .pill-optional { background: transparent; color: var(--new); border: 1px dashed var(--new); }
   tbody tr:hover { background: var(--surface-2); }
 
   /* ---- Confidence list ------------------------------------------------*/
@@ -299,23 +302,23 @@
 
   <header class="titleblock">
     <div class="eyebrow">NetPak64 · Hardware · P4</div>
-    <h1>SC64 fork — wire interconnect (wired variant)</h1>
-    <p class="dek">Block-level signal map for a NetPak64 adapter forked from SummerCart64: the existing cart-bus front end is inherited unmodified; a new register block, an SPI bridge, and an RP2040 + W5500 network module are added.</p>
+    <h1>SC64 fork — wire interconnect (dual uplink)</h1>
+    <p class="dek">Block-level signal map for a NetPak64 adapter forked from SummerCart64: the existing cart-bus front end is inherited unmodified; a new register block, an SPI bridge, and one ESP32 network module — built-in Wi-Fi plus an optional wired uplink via W5500 — are added.</p>
     <p class="scope-note"><strong>Fidelity note:</strong> this is a <strong>block/interconnect</strong> diagram, not a pin-accurate schematic — SC64's real KiCad pinout was not available while drafting it. Signal <em>groups</em> and their direction are accurate to the design docs and the simulated gateware; exact FPGA/MCU pin numbers are not shown and must come from SC64's actual board files at build time.</p>
     <dl class="drawing-meta">
       <div><dt>Source design</dt><dd>netpak64-hardware-integration.md §3.2</dd></div>
-      <div><dt>Variant shown</dt><dd>RP2040 + W5500 (wired)</dd></div>
-      <div><dt>Revision</dt><dd>0.1 — design study</dd></div>
+      <div><dt>Variant shown</dt><dd>ESP32 — Wi-Fi + optional wired (W5500)</dd></div>
+      <div><dt>Revision</dt><dd>0.2 — design study</dd></div>
       <div><dt>Status</dt><dd>Not built; gateware logic sim-verified</dd></div>
     </dl>
   </header>
 
   <section aria-labelledby="diagram-h">
     <h2 id="diagram-h"><span class="num">01</span>Signal path</h2>
-    <p class="muted">Left → right: console, through the unmodified cart bus, into the FPGA (existing SC64 logic plus one new register block), across the fork boundary, to the new network module and out to Ethernet. Dashed horizontal rail below carries power and ground.</p>
+    <p class="muted">Left → right: console, through the unmodified cart bus, into the FPGA (existing SC64 logic plus one new register block), across the fork boundary, to a single new network module with <strong>two uplinks</strong> — built-in Wi-Fi, and an optional wired path via W5500 — both terminating at the same relay. Dashed horizontal rail below carries power and ground.</p>
 
     <div class="diagram-wrap">
-      <svg viewBox="0 0 1440 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wire interconnect diagram from N64 console through the FPGA to an RP2040 and W5500 network module">
+      <svg viewBox="0 0 1440 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wire interconnect diagram from N64 console through the FPGA to an ESP32 network module with built-in Wi-Fi and an optional wired W5500 uplink">
         <defs>
           <pattern id="gridpat" width="24" height="24" patternUnits="userSpaceOnUse">
             <path d="M 24 0 L 0 0 0 24" fill="none" stroke="var(--grid)" stroke-width="1"/>
@@ -403,57 +406,63 @@
         <text x="660" y="86" font-size="11" class="lbl-new">FORK BOUNDARY</text>
         <text x="660" y="100" font-size="9.5" class="lbl-dim">everything right of this line is new</text>
 
-        <!-- SPI bridge -> RP2040 -->
-        <line x1="602" y1="257" x2="700" y2="257" class="bus-new" marker-end="url(#arrow-new)"/>
-        <text x="651" y="247" font-size="10" text-anchor="middle" class="lbl-new">SPI</text>
+        <!-- SPI bridge -> ESP32 -->
+        <line x1="602" y1="257" x2="700" y2="267" class="bus-new" marker-end="url(#arrow-new)"/>
+        <text x="651" y="252" font-size="10" text-anchor="middle" class="lbl-new">SPI</text>
 
-        <!-- RP2040 -->
-        <rect x="700" y="182" width="160" height="150" rx="6" class="block-new" stroke-width="1.5"/>
-        <text x="780" y="204" font-size="13" text-anchor="middle" class="lbl-new">RP2040 — NEW</text>
-        <text x="780" y="222" font-size="10" text-anchor="middle" class="lbl-dim">netpak-core firmware</text>
-        <line x1="712" y1="234" x2="848" y2="234" stroke="var(--rule)" stroke-width="1"/>
-        <text x="780" y="252" font-size="10" text-anchor="middle" class="lbl-dim">DeviceCore FSM + rings</text>
-        <text x="780" y="270" font-size="10" text-anchor="middle" class="lbl-dim">CtlPlane (reliability)</text>
-        <text x="780" y="288" font-size="10" text-anchor="middle" class="lbl-dim">NetClient / socket HAL</text>
-        <text x="780" y="312" font-size="9.5" text-anchor="middle" class="lbl-dim">+ SWD debug header</text>
+        <!-- ESP32 (always present: Wi-Fi + optional wired) -->
+        <rect x="700" y="195" width="176" height="146" rx="6" class="block-new" stroke-width="1.5"/>
+        <text x="788" y="217" font-size="13" text-anchor="middle" class="lbl-new">ESP32 — NEW</text>
+        <text x="788" y="235" font-size="10" text-anchor="middle" class="lbl-dim">netpak-core firmware</text>
+        <line x1="712" y1="247" x2="852" y2="247" stroke="var(--rule)" stroke-width="1"/>
+        <text x="788" y="265" font-size="10" text-anchor="middle" class="lbl-dim">DeviceCore FSM + rings</text>
+        <text x="788" y="283" font-size="10" text-anchor="middle" class="lbl-dim">CtlPlane (reliability)</text>
+        <text x="788" y="301" font-size="10" text-anchor="middle" class="lbl-dim">NetClient / socket HAL</text>
+        <text x="788" y="319" font-size="10" text-anchor="middle" class="lbl-new">Wi-Fi radio: built-in</text>
+        <text x="788" y="333" font-size="9" text-anchor="middle" class="lbl-dim">+ SWD debug header</text>
 
-        <!-- RP2040 -> W5500 -->
-        <line x1="860" y1="257" x2="944" y2="257" class="bus-new" marker-end="url(#arrow-new)"/>
-        <text x="902" y="247" font-size="10" text-anchor="middle" class="lbl-new">SPI</text>
+        <!-- ESP32 -> Wi-Fi (always present) -->
+        <polyline points="788,195 788,150 900,150" class="bus-new" fill="none" marker-end="url(#arrow-new)"/>
+        <rect x="900" y="115" width="150" height="70" rx="6" class="block-new" stroke-width="1.5"/>
+        <text x="975" y="138" font-size="13" text-anchor="middle" class="lbl-new">WI-FI — NEW</text>
+        <text x="975" y="156" font-size="10" text-anchor="middle" class="lbl-dim">built-in, 802.11 b/g/n</text>
+        <text x="975" y="174" font-size="9.5" text-anchor="middle" class="lbl-dim">(always present)</text>
 
-        <!-- W5500 -->
-        <rect x="944" y="197" width="150" height="120" rx="6" class="block-new" stroke-width="1.5"/>
-        <text x="1019" y="219" font-size="13" text-anchor="middle" class="lbl-new">W5500 — NEW</text>
-        <text x="1019" y="237" font-size="10" text-anchor="middle" class="lbl-dim">hardware TCP/UDP</text>
-        <line x1="956" y1="249" x2="1082" y2="249" stroke="var(--rule)" stroke-width="1"/>
-        <text x="1019" y="267" font-size="10" text-anchor="middle" class="lbl-dim">SPI slave + INT + RST</text>
-        <text x="1019" y="285" font-size="10" text-anchor="middle" class="lbl-dim">no host stack needed</text>
-        <text x="1019" y="303" font-size="9.5" text-anchor="middle" class="lbl-dim">(hardware sockets)</text>
+        <!-- ESP32 -> W5500 (optional wired leg) -->
+        <line x1="876" y1="295" x2="910" y2="295" class="bus-new" marker-end="url(#arrow-new)" stroke-dasharray="4 3"/>
+        <text x="893" y="284" font-size="9" text-anchor="middle" class="lbl-new">SPI</text>
+        <rect x="910" y="250" width="140" height="100" rx="6" class="block-optional" stroke-width="1.5"/>
+        <text x="980" y="273" font-size="12" text-anchor="middle" class="lbl-new">W5500 — optional</text>
+        <text x="980" y="291" font-size="10" text-anchor="middle" class="lbl-dim">wired uplink</text>
+        <line x1="922" y1="300" x2="1038" y2="300" stroke="var(--rule)" stroke-width="1"/>
+        <text x="980" y="317" font-size="9.5" text-anchor="middle" class="lbl-dim">SPI + INT + RST</text>
+        <text x="980" y="333" font-size="9" text-anchor="middle" class="lbl-dim">(populate if wired desired)</text>
 
-        <!-- W5500 -> magnetics -->
-        <line x1="1094" y1="257" x2="1150" y2="257" class="bus-new" marker-end="url(#arrow-new)"/>
-        <text x="1122" y="247" font-size="9" text-anchor="middle" class="lbl-new">MDI</text>
+        <!-- W5500 -> magnetics (optional) -->
+        <line x1="1050" y1="300" x2="1110" y2="300" class="bus-new" marker-end="url(#arrow-new)" stroke-dasharray="4 3"/>
+        <text x="1080" y="290" font-size="9" text-anchor="middle" class="lbl-new">MDI</text>
+        <rect x="1110" y="270" width="120" height="60" rx="6" class="block-optional"/>
+        <text x="1170" y="292" font-size="10.5" text-anchor="middle" class="lbl-new">MAGNETICS</text>
+        <text x="1170" y="307" font-size="10.5" text-anchor="middle" class="lbl-new">+ RJ45 (opt.)</text>
+        <text x="1170" y="322" font-size="9" text-anchor="middle" class="lbl-dim">TX±/RX± pairs</text>
 
-        <!-- magnetics + jack -->
-        <rect x="1150" y="222" width="130" height="70" rx="6" class="block-new"/>
-        <text x="1215" y="244" font-size="11" text-anchor="middle" class="lbl-new">MAGNETICS</text>
-        <text x="1215" y="259" font-size="11" text-anchor="middle" class="lbl-new">+ RJ45</text>
-        <text x="1215" y="277" font-size="9.5" text-anchor="middle" class="lbl-dim">TX±/RX± pairs</text>
-
-        <!-- jack -> LAN -->
-        <line x1="1280" y1="257" x2="1330" y2="257" class="bus-new" marker-end="url(#arrow-new)"/>
-        <rect x="1330" y="227" width="96" height="60" rx="6" class="block-context"/>
-        <text x="1378" y="252" font-size="11" text-anchor="middle" class="lbl-dim">LAN /</text>
-        <text x="1378" y="268" font-size="11" text-anchor="middle" class="lbl-dim">np64-relay</text>
+        <!-- both uplinks converge on the relay -->
+        <line x1="1050" y1="150" x2="1260" y2="222" class="bus-new" marker-end="url(#arrow-new)"/>
+        <line x1="1230" y1="300" x2="1260" y2="295" class="bus-new" marker-end="url(#arrow-new)" stroke-dasharray="4 3"/>
+        <rect x="1260" y="190" width="120" height="140" rx="6" class="block-context"/>
+        <text x="1320" y="230" font-size="12" text-anchor="middle" class="lbl-dim">LAN /</text>
+        <text x="1320" y="248" font-size="12" text-anchor="middle" class="lbl-dim">np64-relay</text>
+        <text x="1320" y="300" font-size="9.5" text-anchor="middle" class="lbl-dim">reached via</text>
+        <text x="1320" y="314" font-size="9.5" text-anchor="middle" class="lbl-dim">either uplink</text>
 
         <!-- Power rail -->
         <line x1="30" y1="540" x2="1094" y2="540" class="wire-power"/>
         <text x="30" y="530" font-size="10.5" class="lbl-dim">3.3V — existing cart rail, existing SC64 regulation</text>
         <line x1="153" y1="540" x2="153" y2="500" class="wire-power"/>
         <line x1="410" y1="540" x2="410" y2="426" class="wire-power"/>
-        <line x1="780" y1="540" x2="780" y2="332" class="wire-power"/>
-        <line x1="1019" y1="540" x2="1019" y2="317" class="wire-power"/>
-        <text x="800" y="558" font-size="10" class="lbl-new">⚠ confirm regulator headroom for the added RP2040+W5500 load</text>
+        <line x1="788" y1="540" x2="788" y2="341" class="wire-power"/>
+        <line x1="980" y1="540" x2="980" y2="350" class="wire-power"/>
+        <text x="800" y="558" font-size="10" class="lbl-new">⚠ confirm regulator headroom: ESP32 (+ Wi-Fi TX bursts) plus optional W5500, together</text>
 
         <!-- GND rail -->
         <line x1="30" y1="575" x2="1094" y2="575" class="wire-gnd"/>
@@ -468,6 +477,7 @@
       <div class="legend-item"><span class="swatch sw-inherited"></span><div><strong>Inherited</strong><span class="d"> — existing SC64 hardware/gateware, unmodified.</span></div></div>
       <div class="legend-item"><span class="swatch sw-new"></span><div><strong>New</strong><span class="d"> — added by the NetPak64 fork.</span></div></div>
       <div class="legend-item"><span class="swatch sw-mixed"></span><div><strong>Modified</strong><span class="d"> — existing block, small addition (one decode route).</span></div></div>
+      <div class="legend-item"><span class="swatch sw-optional"></span><div><strong>Optional</strong><span class="d"> — new, but only populated if the wired uplink is wanted.</span></div></div>
       <div class="legend-item"><span class="swatch line sw-inherited"></span><div><strong>Thick line</strong><span class="d"> — parallel bus (AD16, cart-bus signals).</span></div></div>
       <div class="legend-item"><span class="swatch line sw-new"></span><div><strong>Thin line</strong><span class="d"> — serial link (SPI, MDI Ethernet pairs).</span></div></div>
       <div class="legend-item"><span class="swatch line sw-power"></span><div><strong>Dashed</strong><span class="d"> — power distribution.</span></div></div>
@@ -500,31 +510,38 @@
           </tr>
           <tr>
             <td class="sig">SCK / MOSI / MISO / CS#</td>
-            <td>FPGA (SPI bridge)</td><td>RP2040</td>
+            <td>FPGA (SPI bridge)</td><td>ESP32</td>
             <td class="sig">SPI</td>
             <td><span class="pill pill-new">New</span></td>
             <td>Exposes DeviceCore rings across the queue boundary.</td>
           </tr>
           <tr>
-            <td class="sig">SCK / MOSI / MISO / CS# / INT / RST</td>
-            <td>RP2040</td><td>W5500</td>
-            <td class="sig">SPI</td>
+            <td class="sig">802.11 b/g/n radio</td>
+            <td>ESP32 (built-in)</td><td>Wireless LAN</td>
+            <td class="sig">Wi-Fi</td>
             <td><span class="pill pill-new">New</span></td>
-            <td>W5500 exposes hardware TCP/UDP sockets — no software stack.</td>
+            <td>On-chip — no extra silicon, always present.</td>
+          </tr>
+          <tr>
+            <td class="sig">SCK / MOSI / MISO / CS# / INT / RST</td>
+            <td>ESP32</td><td>W5500</td>
+            <td class="sig">SPI</td>
+            <td><span class="pill pill-optional">Optional</span></td>
+            <td>Wired uplink via ESP-IDF's <code style="font-family:inherit">esp_eth</code> W5500 driver — populate only if wanted.</td>
           </tr>
           <tr>
             <td class="sig">TX± / RX±</td>
             <td>W5500</td><td>Magnetics + RJ45</td>
             <td class="sig">MDI (Ethernet PHY)</td>
-            <td><span class="pill pill-new">New</span></td>
-            <td>Standard 10/100 magnetics wiring.</td>
+            <td><span class="pill pill-optional">Optional</span></td>
+            <td>Standard 10/100 magnetics wiring; wired-leg only.</td>
           </tr>
           <tr>
             <td class="sig">3.3V</td>
-            <td>Existing SC64 regulator</td><td>FPGA, RP2040, W5500</td>
+            <td>Existing SC64 regulator</td><td>FPGA, ESP32, W5500 (if populated)</td>
             <td class="sig">Power</td>
             <td><span class="pill pill-mixed">Modified</span></td>
-            <td>New load on an existing rail — headroom not yet confirmed.</td>
+            <td>New load on an existing rail, larger with both uplinks populated — headroom not yet confirmed.</td>
           </tr>
           <tr>
             <td class="sig">GND</td>
@@ -549,16 +566,18 @@
           <li><code>n64_netpak.sv</code> probe logic simulates green on Verilator (both addressing modes proven).</li>
           <li>RTL ↔ <code>netpak-core</code> differential conformance: 96,425 lockstep checks, 0 mismatches.</li>
           <li>DD's <code>irq</code> pattern is the template for the new block's cart-IRQ line.</li>
+          <li>ESP-IDF officially supports W5500 as an SPI Ethernet MAC/PHY (<code>esp_eth</code> component, Espressif's own docs) — one MCU genuinely covers both uplinks.</li>
         </ul>
       </div>
       <div class="confidence-col open">
         <h3>⚠ Still open</h3>
         <ul>
           <li>Exact FPGA/MCU pin assignments — needs SC64's real KiCad project.</li>
-          <li><strong>Power budget:</strong> does the existing 3.3V regulator have headroom for RP2040 + W5500?</li>
+          <li><strong>Power budget:</strong> does the existing 3.3V regulator have headroom for ESP32 (incl. Wi-Fi TX bursts) <em>plus</em> an optional W5500, populated together? Bigger unknown now than a single-uplink design.</li>
           <li>Dom2 bus timing on real silicon (H1) — the #1 unretired hardware risk.</li>
-          <li>Where SPI physically breaks out on a shipping SC64 board (free GPIO vs. a board revision).</li>
-          <li>DTLS transport (separate design doc) would terminate in the RP2040 shown here — not yet wired into this diagram.</li>
+          <li>Where SPI physically breaks out on a shipping SC64 board (free GPIO vs. a board revision) — now needs two SPI buses, not one.</li>
+          <li>Uplink-selection firmware policy (prefer wired-if-linked, else Wi-Fi) — a config default, not an open architectural question.</li>
+          <li>DTLS transport (separate design doc) would terminate in the ESP32 shown here — not yet wired into this diagram.</li>
         </ul>
       </div>
     </div>
