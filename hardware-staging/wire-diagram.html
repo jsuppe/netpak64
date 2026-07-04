@@ -1,0 +1,575 @@
+<title>NetPak64 — SC64 Fork Wire Diagram</title>
+<style>
+  :root {
+    --bg: #EEF2F0;
+    --surface: #FFFFFF;
+    --surface-2: #F5F8F7;
+    --ink: #1B2422;
+    --ink-dim: #5B6B67;
+    --inherited: #5B7A8C;
+    --inherited-fill: #E7EDF0;
+    --new: #B5651D;
+    --new-fill: #F7E9DC;
+    --grid: #C7D1CE;
+    --rule: #D3DBD8;
+    --focus: #2E6E5E;
+  }
+  :root[data-theme="dark"] {
+    --bg: #10161A;
+    --surface: #182027;
+    --surface-2: #131A1F;
+    --ink: #DCE4E2;
+    --ink-dim: #8FA09B;
+    --inherited: #7FA6BD;
+    --inherited-fill: #1E2C33;
+    --new: #E2934F;
+    --new-fill: #33261A;
+    --grid: #26313688;
+    --rule: #2A3438;
+    --focus: #6FC2A8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10161A;
+      --surface: #182027;
+      --surface-2: #131A1F;
+      --ink: #DCE4E2;
+      --ink-dim: #8FA09B;
+      --inherited: #7FA6BD;
+      --inherited-fill: #1E2C33;
+      --new: #E2934F;
+      --new-fill: #33261A;
+      --grid: #26313688;
+      --rule: #2A3438;
+      --focus: #6FC2A8;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  a { color: var(--focus); }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .page {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  /* ---- Title block ------------------------------------------------- */
+  header.titleblock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 1.75rem;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--new);
+    font-weight: 600;
+  }
+  h1 {
+    font-size: clamp(1.6rem, 3vw, 2.35rem);
+    line-height: 1.15;
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .dek {
+    max-width: 62ch;
+    color: var(--ink-dim);
+    font-size: 1rem;
+    margin: 0;
+  }
+  .scope-note {
+    max-width: 66ch;
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--inherited);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    margin: 0;
+  }
+  .scope-note strong { color: var(--ink); }
+
+  .drawing-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.5rem 1.5rem;
+    margin: 0.25rem 0 0;
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    font-size: 0.78rem;
+  }
+  .drawing-meta div { display: flex; flex-direction: column; gap: 0.15rem; }
+  .drawing-meta dt {
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+  }
+  .drawing-meta dd { margin: 0; color: var(--ink); }
+
+  /* ---- Section shell ------------------------------------------------ */
+  section { display: flex; flex-direction: column; gap: 1.1rem; }
+  h2 {
+    font-size: 1.15rem;
+    margin: 0;
+    letter-spacing: -0.005em;
+  }
+  h2 .num {
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    color: var(--new);
+    margin-right: 0.5rem;
+    font-size: 0.95rem;
+  }
+  p { margin: 0; }
+  .muted { color: var(--ink-dim); font-size: 0.9rem; }
+
+  /* ---- Diagram -------------------------------------------------------*/
+  .diagram-wrap {
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 0.75rem;
+  }
+  .diagram-wrap svg {
+    display: block;
+    min-width: 980px;
+    width: 100%;
+    height: auto;
+  }
+  svg text {
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    fill: var(--ink);
+  }
+  svg .lbl-dim { fill: var(--ink-dim); }
+  svg .lbl-new { fill: var(--new); font-weight: 600; }
+  svg .lbl-inherited { fill: var(--inherited); }
+  svg .block-inherited { fill: var(--inherited-fill); stroke: var(--inherited); }
+  svg .block-new { fill: var(--new-fill); stroke: var(--new); }
+  svg .block-mixed { fill: var(--inherited-fill); stroke: var(--new); stroke-dasharray: 5 3; }
+  svg .block-context { fill: var(--surface-2); stroke: var(--rule); }
+  svg .bus-inherited { stroke: var(--inherited); stroke-width: 4; fill: none; }
+  svg .bus-new { stroke: var(--new); stroke-width: 3; fill: none; }
+  svg .wire-power { stroke: var(--ink-dim); stroke-width: 1.5; stroke-dasharray: 6 4; fill: none; }
+  svg .wire-gnd { stroke: var(--ink-dim); stroke-width: 1.2; fill: none; }
+  svg .boundary { stroke: var(--new); stroke-width: 1.5; stroke-dasharray: 2 4; }
+  svg .grid-bg { fill: url(#gridpat); }
+
+  /* ---- Legend --------------------------------------------------------*/
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.9rem 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.1rem 1.3rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+  }
+  .swatch {
+    flex: none;
+    width: 30px; height: 14px;
+    border-radius: 2px;
+    margin-top: 0.2rem;
+  }
+  .swatch.line { height: 3px; margin-top: 0.6rem; border-radius: 0; }
+  .sw-new { background: var(--new); }
+  .sw-inherited { background: var(--inherited); }
+  .sw-mixed { background: repeating-linear-gradient(90deg, var(--new) 0 6px, var(--inherited-fill) 6px 10px); }
+  .sw-power { background: repeating-linear-gradient(90deg, var(--ink-dim) 0 6px, transparent 6px 10px); }
+  .sw-gnd { background: var(--ink-dim); }
+  .legend-item strong { display: block; color: var(--ink); font-weight: 600; }
+  .legend-item span.d { color: var(--ink-dim); }
+
+  /* ---- Table ---------------------------------------------------------*/
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    min-width: 780px;
+  }
+  caption { text-align: left; color: var(--ink-dim); font-size: 0.8rem; margin-bottom: 0.5rem; }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.8rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-dim);
+    font-weight: 600;
+    border-bottom: 1px solid var(--ink-dim);
+  }
+  td.sig { font-family: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 0.82rem; }
+  .pill {
+    display: inline-block;
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .pill-new { background: var(--new-fill); color: var(--new); }
+  .pill-inherited { background: var(--inherited-fill); color: var(--inherited); }
+  .pill-mixed { background: linear-gradient(90deg, var(--new-fill), var(--inherited-fill)); color: var(--ink); }
+  tbody tr:hover { background: var(--surface-2); }
+
+  /* ---- Confidence list ------------------------------------------------*/
+  .confidence-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 720px) { .confidence-grid { grid-template-columns: 1fr; } }
+  .confidence-col {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.1rem 1.3rem;
+  }
+  .confidence-col h3 {
+    margin: 0 0 0.7rem;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .confidence-col.ok h3 { color: var(--focus); }
+  .confidence-col.open h3 { color: var(--new); }
+  .confidence-col ul { margin: 0; padding-left: 1.1rem; font-size: 0.87rem; }
+  .confidence-col li { margin-bottom: 0.5rem; }
+  .confidence-col li:last-child { margin-bottom: 0; }
+  .confidence-col code {
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    font-size: 0.82em;
+    background: var(--surface-2);
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+  }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    font-size: 0.82rem;
+    color: var(--ink-dim);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+  }
+</style>
+
+<div class="page">
+
+  <header class="titleblock">
+    <div class="eyebrow">NetPak64 · Hardware · P4</div>
+    <h1>SC64 fork — wire interconnect (wired variant)</h1>
+    <p class="dek">Block-level signal map for a NetPak64 adapter forked from SummerCart64: the existing cart-bus front end is inherited unmodified; a new register block, an SPI bridge, and an RP2040 + W5500 network module are added.</p>
+    <p class="scope-note"><strong>Fidelity note:</strong> this is a <strong>block/interconnect</strong> diagram, not a pin-accurate schematic — SC64's real KiCad pinout was not available while drafting it. Signal <em>groups</em> and their direction are accurate to the design docs and the simulated gateware; exact FPGA/MCU pin numbers are not shown and must come from SC64's actual board files at build time.</p>
+    <dl class="drawing-meta">
+      <div><dt>Source design</dt><dd>netpak64-hardware-integration.md §3.2</dd></div>
+      <div><dt>Variant shown</dt><dd>RP2040 + W5500 (wired)</dd></div>
+      <div><dt>Revision</dt><dd>0.1 — design study</dd></div>
+      <div><dt>Status</dt><dd>Not built; gateware logic sim-verified</dd></div>
+    </dl>
+  </header>
+
+  <section aria-labelledby="diagram-h">
+    <h2 id="diagram-h"><span class="num">01</span>Signal path</h2>
+    <p class="muted">Left → right: console, through the unmodified cart bus, into the FPGA (existing SC64 logic plus one new register block), across the fork boundary, to the new network module and out to Ethernet. Dashed horizontal rail below carries power and ground.</p>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 1440 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wire interconnect diagram from N64 console through the FPGA to an RP2040 and W5500 network module">
+        <defs>
+          <pattern id="gridpat" width="24" height="24" patternUnits="userSpaceOnUse">
+            <path d="M 24 0 L 0 0 0 24" fill="none" stroke="var(--grid)" stroke-width="1"/>
+          </pattern>
+          <marker id="arrow-inherited" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="var(--inherited)" />
+          </marker>
+          <marker id="arrow-new" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="var(--new)" />
+          </marker>
+        </defs>
+
+        <rect x="0" y="0" width="1440" height="640" class="grid-bg" />
+
+        <!-- N64 console -->
+        <rect x="14" y="255" width="108" height="88" rx="6" class="block-context" stroke-width="1.5"/>
+        <text x="68" y="292" font-size="13" text-anchor="middle" class="lbl-dim">N64</text>
+        <text x="68" y="309" font-size="13" text-anchor="middle" class="lbl-dim">CONSOLE</text>
+        <text x="68" y="330" font-size="10.5" text-anchor="middle" class="lbl-dim">(unmodified)</text>
+
+        <!-- Cart edge connector -->
+        <rect x="140" y="272" width="26" height="54" rx="2" class="block-inherited" stroke-width="1.5"/>
+        <text x="153" y="352" font-size="10.5" text-anchor="middle" class="lbl-inherited">CART</text>
+        <text x="153" y="365" font-size="10.5" text-anchor="middle" class="lbl-inherited">EDGE</text>
+
+        <!-- bus: console -> connector -->
+        <line x1="122" y1="299" x2="140" y2="299" class="bus-inherited" marker-end="url(#arrow-inherited)"/>
+
+        <!-- bus: connector -> FPGA -->
+        <line x1="166" y1="299" x2="204" y2="299" class="bus-inherited" marker-end="url(#arrow-inherited)"/>
+        <text x="186" y="288" font-size="10.5" text-anchor="middle" class="lbl-inherited">AD16</text>
+
+        <!-- FPGA outer -->
+        <rect x="204" y="96" width="416" height="330" rx="6" class="block-context" stroke-width="1.5"/>
+        <text x="222" y="118" font-size="13" class="lbl-dim">LATTICE MACHXO2 FPGA — existing SC64 die</text>
+
+        <!-- inside: n64_pi -->
+        <rect x="222" y="134" width="380" height="42" rx="4" class="block-inherited"/>
+        <text x="234" y="152" font-size="12" class="lbl-inherited">n64_pi.sv</text>
+        <text x="234" y="167" font-size="10.5" class="lbl-dim">AD16 latch · strobes · Dom2 timing (inherited)</text>
+
+        <!-- inside: n64_reg_bus (mixed) -->
+        <rect x="222" y="184" width="380" height="42" rx="4" class="block-mixed"/>
+        <text x="234" y="202" font-size="12" class="lbl-inherited">n64_reg_bus.sv</text>
+        <text x="234" y="217" font-size="10.5" class="lbl-dim">decode/routing — <tspan class="lbl-new">+1 route added</tspan></text>
+
+        <!-- inside: n64_netpak (new) -->
+        <rect x="222" y="234" width="290" height="46" rx="4" class="block-new"/>
+        <text x="234" y="253" font-size="12" class="lbl-new">n64_netpak.sv — NEW</text>
+        <text x="234" y="269" font-size="10.5" class="lbl-dim">MAGIC · VERSION · CMD_DATA · IP3</text>
+
+        <!-- inside: SPI bridge (new) -->
+        <rect x="522" y="234" width="80" height="46" rx="4" class="block-new"/>
+        <text x="562" y="253" font-size="10.5" text-anchor="middle" class="lbl-new">SPI</text>
+        <text x="562" y="266" font-size="10.5" text-anchor="middle" class="lbl-new">BRIDGE</text>
+        <text x="562" y="277" font-size="9" text-anchor="middle" class="lbl-dim">(new)</text>
+        <line x1="512" y1="257" x2="522" y2="257" class="bus-new"/>
+
+        <!-- inside: other peripherals, dimmed -->
+        <rect x="222" y="290" width="380" height="42" rx="4" class="block-inherited" opacity="0.55"/>
+        <text x="234" y="308" font-size="11" class="lbl-inherited" opacity="0.85">n64_dd · n64_cic · n64_cfg · n64_scb</text>
+        <text x="234" y="322" font-size="10" class="lbl-dim">other SC64 peripherals — unaffected</text>
+
+        <!-- context: SDRAM / flash / usb / sd, below FPGA -->
+        <g class="lbl-dim">
+          <rect x="222" y="452" width="90" height="40" rx="4" class="block-context"/>
+          <text x="267" y="476" font-size="10.5" text-anchor="middle">SDRAM</text>
+          <rect x="322" y="452" width="90" height="40" rx="4" class="block-context"/>
+          <text x="367" y="470" font-size="10" text-anchor="middle">QSPI</text>
+          <text x="367" y="482" font-size="10" text-anchor="middle">FLASH</text>
+          <rect x="422" y="452" width="90" height="40" rx="4" class="block-context"/>
+          <text x="467" y="470" font-size="10" text-anchor="middle">FTDI</text>
+          <text x="467" y="482" font-size="10" text-anchor="middle">USB</text>
+          <rect x="522" y="452" width="82" height="40" rx="4" class="block-context"/>
+          <text x="563" y="476" font-size="10.5" text-anchor="middle">microSD</text>
+        </g>
+        <line x1="267" y1="426" x2="267" y2="452" class="wire-gnd" opacity="0.6"/>
+        <line x1="367" y1="426" x2="367" y2="452" class="wire-gnd" opacity="0.6"/>
+        <line x1="467" y1="426" x2="467" y2="452" class="wire-gnd" opacity="0.6"/>
+        <line x1="563" y1="426" x2="563" y2="452" class="wire-gnd" opacity="0.6"/>
+        <text x="222" y="440" font-size="10" class="lbl-dim">existing SC64 peripherals — context only, unaffected by the fork</text>
+
+        <!-- Fork boundary -->
+        <line x1="654" y1="70" x2="654" y2="600" class="boundary"/>
+        <text x="660" y="86" font-size="11" class="lbl-new">FORK BOUNDARY</text>
+        <text x="660" y="100" font-size="9.5" class="lbl-dim">everything right of this line is new</text>
+
+        <!-- SPI bridge -> RP2040 -->
+        <line x1="602" y1="257" x2="700" y2="257" class="bus-new" marker-end="url(#arrow-new)"/>
+        <text x="651" y="247" font-size="10" text-anchor="middle" class="lbl-new">SPI</text>
+
+        <!-- RP2040 -->
+        <rect x="700" y="182" width="160" height="150" rx="6" class="block-new" stroke-width="1.5"/>
+        <text x="780" y="204" font-size="13" text-anchor="middle" class="lbl-new">RP2040 — NEW</text>
+        <text x="780" y="222" font-size="10" text-anchor="middle" class="lbl-dim">netpak-core firmware</text>
+        <line x1="712" y1="234" x2="848" y2="234" stroke="var(--rule)" stroke-width="1"/>
+        <text x="780" y="252" font-size="10" text-anchor="middle" class="lbl-dim">DeviceCore FSM + rings</text>
+        <text x="780" y="270" font-size="10" text-anchor="middle" class="lbl-dim">CtlPlane (reliability)</text>
+        <text x="780" y="288" font-size="10" text-anchor="middle" class="lbl-dim">NetClient / socket HAL</text>
+        <text x="780" y="312" font-size="9.5" text-anchor="middle" class="lbl-dim">+ SWD debug header</text>
+
+        <!-- RP2040 -> W5500 -->
+        <line x1="860" y1="257" x2="944" y2="257" class="bus-new" marker-end="url(#arrow-new)"/>
+        <text x="902" y="247" font-size="10" text-anchor="middle" class="lbl-new">SPI</text>
+
+        <!-- W5500 -->
+        <rect x="944" y="197" width="150" height="120" rx="6" class="block-new" stroke-width="1.5"/>
+        <text x="1019" y="219" font-size="13" text-anchor="middle" class="lbl-new">W5500 — NEW</text>
+        <text x="1019" y="237" font-size="10" text-anchor="middle" class="lbl-dim">hardware TCP/UDP</text>
+        <line x1="956" y1="249" x2="1082" y2="249" stroke="var(--rule)" stroke-width="1"/>
+        <text x="1019" y="267" font-size="10" text-anchor="middle" class="lbl-dim">SPI slave + INT + RST</text>
+        <text x="1019" y="285" font-size="10" text-anchor="middle" class="lbl-dim">no host stack needed</text>
+        <text x="1019" y="303" font-size="9.5" text-anchor="middle" class="lbl-dim">(hardware sockets)</text>
+
+        <!-- W5500 -> magnetics -->
+        <line x1="1094" y1="257" x2="1150" y2="257" class="bus-new" marker-end="url(#arrow-new)"/>
+        <text x="1122" y="247" font-size="9" text-anchor="middle" class="lbl-new">MDI</text>
+
+        <!-- magnetics + jack -->
+        <rect x="1150" y="222" width="130" height="70" rx="6" class="block-new"/>
+        <text x="1215" y="244" font-size="11" text-anchor="middle" class="lbl-new">MAGNETICS</text>
+        <text x="1215" y="259" font-size="11" text-anchor="middle" class="lbl-new">+ RJ45</text>
+        <text x="1215" y="277" font-size="9.5" text-anchor="middle" class="lbl-dim">TX±/RX± pairs</text>
+
+        <!-- jack -> LAN -->
+        <line x1="1280" y1="257" x2="1330" y2="257" class="bus-new" marker-end="url(#arrow-new)"/>
+        <rect x="1330" y="227" width="96" height="60" rx="6" class="block-context"/>
+        <text x="1378" y="252" font-size="11" text-anchor="middle" class="lbl-dim">LAN /</text>
+        <text x="1378" y="268" font-size="11" text-anchor="middle" class="lbl-dim">np64-relay</text>
+
+        <!-- Power rail -->
+        <line x1="30" y1="540" x2="1094" y2="540" class="wire-power"/>
+        <text x="30" y="530" font-size="10.5" class="lbl-dim">3.3V — existing cart rail, existing SC64 regulation</text>
+        <line x1="153" y1="540" x2="153" y2="500" class="wire-power"/>
+        <line x1="410" y1="540" x2="410" y2="426" class="wire-power"/>
+        <line x1="780" y1="540" x2="780" y2="332" class="wire-power"/>
+        <line x1="1019" y1="540" x2="1019" y2="317" class="wire-power"/>
+        <text x="800" y="558" font-size="10" class="lbl-new">⚠ confirm regulator headroom for the added RP2040+W5500 load</text>
+
+        <!-- GND rail -->
+        <line x1="30" y1="575" x2="1094" y2="575" class="wire-gnd"/>
+        <text x="30" y="592" font-size="10.5" class="lbl-dim">GND — common return</text>
+      </svg>
+    </div>
+  </section>
+
+  <section aria-labelledby="legend-h">
+    <h2 id="legend-h"><span class="num">02</span>Legend</h2>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch sw-inherited"></span><div><strong>Inherited</strong><span class="d"> — existing SC64 hardware/gateware, unmodified.</span></div></div>
+      <div class="legend-item"><span class="swatch sw-new"></span><div><strong>New</strong><span class="d"> — added by the NetPak64 fork.</span></div></div>
+      <div class="legend-item"><span class="swatch sw-mixed"></span><div><strong>Modified</strong><span class="d"> — existing block, small addition (one decode route).</span></div></div>
+      <div class="legend-item"><span class="swatch line sw-inherited"></span><div><strong>Thick line</strong><span class="d"> — parallel bus (AD16, cart-bus signals).</span></div></div>
+      <div class="legend-item"><span class="swatch line sw-new"></span><div><strong>Thin line</strong><span class="d"> — serial link (SPI, MDI Ethernet pairs).</span></div></div>
+      <div class="legend-item"><span class="swatch line sw-power"></span><div><strong>Dashed</strong><span class="d"> — power distribution.</span></div></div>
+      <div class="legend-item"><span class="swatch line sw-gnd"></span><div><strong>Thin solid</strong><span class="d"> — ground return.</span></div></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="conn-h">
+    <h2 id="conn-h"><span class="num">03</span>Connection reference</h2>
+    <div class="table-wrap">
+      <table>
+        <caption>Signal groups only — not individual pin numbers (see fidelity note above).</caption>
+        <thead>
+          <tr><th>Signal group</th><th>From</th><th>To</th><th>Protocol</th><th>Status</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="sig">AD16 + ALE/RD/WR/IRQ</td>
+            <td>N64 cart edge</td><td>FPGA (n64_pi.sv)</td>
+            <td class="sig">Cart bus</td>
+            <td><span class="pill pill-inherited">Inherited</span></td>
+            <td>Unmodified — the hard part SC64 already solved.</td>
+          </tr>
+          <tr>
+            <td class="sig">reg_bus.{read,write,address,rdata,wdata}</td>
+            <td>n64_reg_bus.sv</td><td>n64_netpak.sv</td>
+            <td class="sig">Internal (16-bit)</td>
+            <td><span class="pill pill-mixed">Modified</span></td>
+            <td>One added decode route: upper-16 == 0x05F0.</td>
+          </tr>
+          <tr>
+            <td class="sig">SCK / MOSI / MISO / CS#</td>
+            <td>FPGA (SPI bridge)</td><td>RP2040</td>
+            <td class="sig">SPI</td>
+            <td><span class="pill pill-new">New</span></td>
+            <td>Exposes DeviceCore rings across the queue boundary.</td>
+          </tr>
+          <tr>
+            <td class="sig">SCK / MOSI / MISO / CS# / INT / RST</td>
+            <td>RP2040</td><td>W5500</td>
+            <td class="sig">SPI</td>
+            <td><span class="pill pill-new">New</span></td>
+            <td>W5500 exposes hardware TCP/UDP sockets — no software stack.</td>
+          </tr>
+          <tr>
+            <td class="sig">TX± / RX±</td>
+            <td>W5500</td><td>Magnetics + RJ45</td>
+            <td class="sig">MDI (Ethernet PHY)</td>
+            <td><span class="pill pill-new">New</span></td>
+            <td>Standard 10/100 magnetics wiring.</td>
+          </tr>
+          <tr>
+            <td class="sig">3.3V</td>
+            <td>Existing SC64 regulator</td><td>FPGA, RP2040, W5500</td>
+            <td class="sig">Power</td>
+            <td><span class="pill pill-mixed">Modified</span></td>
+            <td>New load on an existing rail — headroom not yet confirmed.</td>
+          </tr>
+          <tr>
+            <td class="sig">GND</td>
+            <td>All blocks</td><td>Common return</td>
+            <td class="sig">Power</td>
+            <td><span class="pill pill-inherited">Inherited</span></td>
+            <td>Existing cart ground plane.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="conf-h">
+    <h2 id="conf-h"><span class="num">04</span>Confirmed vs. open</h2>
+    <div class="confidence-grid">
+      <div class="confidence-col ok">
+        <h3>✓ Confirmed</h3>
+        <ul>
+          <li>Clock/reset port names (<code>clk</code>/<code>reset</code>) match SC64's real <code>n64_dd.sv</code>.</li>
+          <li>SC64's reg bus is <strong>byte-addressed</strong> — <code>n64_netpak.sv</code> defaults correctly.</li>
+          <li><code>n64_netpak.sv</code> probe logic simulates green on Verilator (both addressing modes proven).</li>
+          <li>RTL ↔ <code>netpak-core</code> differential conformance: 96,425 lockstep checks, 0 mismatches.</li>
+          <li>DD's <code>irq</code> pattern is the template for the new block's cart-IRQ line.</li>
+        </ul>
+      </div>
+      <div class="confidence-col open">
+        <h3>⚠ Still open</h3>
+        <ul>
+          <li>Exact FPGA/MCU pin assignments — needs SC64's real KiCad project.</li>
+          <li><strong>Power budget:</strong> does the existing 3.3V regulator have headroom for RP2040 + W5500?</li>
+          <li>Dom2 bus timing on real silicon (H1) — the #1 unretired hardware risk.</li>
+          <li>Where SPI physically breaks out on a shipping SC64 board (free GPIO vs. a board revision).</li>
+          <li>DTLS transport (separate design doc) would terminate in the RP2040 shown here — not yet wired into this diagram.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Source: netpak64-hardware-integration.md §3.2, §11.1</span>
+    <span>·</span>
+    <span>Gateware: hardware-staging/n64_netpak.sv (sim-verified)</span>
+    <span>·</span>
+    <span>NetPak64 project — design study, 2026-07-04</span>
+  </footer>
+
+</div>
