@@ -6,22 +6,24 @@ PI bus — not input-lockstep netplay — and write their own netcode against a
 libdragon driver library. Because the contract is a register-level spec, the
 same ROM is designed to later run against physical hardware.
 
-**Status (2026-07-02):** P0 ✅ · P1 (loopback vertical slice) ✅ · P2 (UDP
-relay) ▶ — two emulated N64s exchange packets through the relay on localhost.
-See [`ROADMAP.md`](ROADMAP.md) for the live plan.
+**Status (2026-07-04):** P0 ✅ · P1 (loopback vertical slice) ✅ · P2 (UDP
+relay, incl. cross-machine + soaks) ✅ · P3 (library & DX, incl. `ch1` +
+`netpong`) ✅ · **P4 (stretch) ▶** — hardware and security design studies
+underway; nothing built on real silicon yet. See [`ROADMAP.md`](ROADMAP.md)
+for the live plan.
 
 ## This repository is the project hub
 
 Spec, design docs, architecture set, and dev orchestration. The
-implementations live in sibling repos:
+implementations live in sibling repos (all private on GitHub):
 
 | Repo | What | Status |
 |---|---|---|
-| `netpak64/` (this) | Spec, proposal, architecture docs, ares glue staging | — |
-| `../netpak-core/` | Standalone C++ device library (register file, FSM, rings, NetClient) — the reference implementation, submoduled into ares | Host tests green (115k checks) |
-| `../libnetpak/` | libdragon C driver + example ROMs (probe, echo, netchat). **Start here as a game developer** — its README is the integration guide | Working ch0 data path, IRQ+poll |
-| `../np64-relay/` | Rust/tokio UDP relay: rooms, presence, forwarding | Dev-loop functional |
-| ares fork | Branch `netpak` on ares v148: ~400-line glue + `thirdparty/netpak-core` | probe/echo/netchat all green |
+| [`netpak64/`](https://github.com/jsuppe/netpak64) (this) | Spec, proposal, architecture docs, hardware/security design studies, ares glue staging | — |
+| [`netpak-core/`](https://github.com/jsuppe/netpak-core) | Standalone C++ device library (register file, FSM, rings, `CtlPlane`, `NetClient`) — the reference implementation, submoduled into ares | Host tests green; RTL↔core differential conformance passing |
+| [`libnetpak/`](https://github.com/jsuppe/libnetpak) | libdragon C driver + example ROMs (probe, echo, netchat, netcmd, netbench, chtest, **netpong**). **Start here as a game developer** — its README is the integration guide | Feature-complete: ch0 + `ch1` reliable-ordered, sessions, `netpong` playable w/ controller input |
+| [`np64-relay/`](https://github.com/jsuppe/np64-relay) | Rust/tokio UDP relay: rooms, presence, forwarding, rate limiting, metrics | Working; cross-machine + loss/rebind soaks pass |
+| ares fork | Branch `netpak` on ares v148: glue + `thirdparty/netpak-core` | All example ROMs green, incl. `netpong` |
 
 ## Document map
 
