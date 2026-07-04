@@ -34,6 +34,9 @@ implementations live in sibling repos:
 - [`netpak64-hardware-integration.md`](netpak64-hardware-integration.md) — P4
   physical-adapter design study: gateware/MCU partition, bus interface, BOMs,
   silicon-validation checklist (v0.1, design-only — nothing built yet).
+- [`netpak64-security-design.md`](netpak64-security-design.md) — P4 encrypted
+  transport design study: DTLS terminates in `NetClient`, never touches the
+  N64 CPU; PSK-based, no PKI (v0.1, design-only — nothing implemented yet).
 - [`docs/architecture/`](docs/architecture/) — C4 L1–L3 views, N64 platform
   primer, sequence diagrams, bibliography (browsable site in `docs/web/`).
 - [`docs/recon-ares-v148.md`](docs/recon-ares-v148.md) — the R1–R10 recon
