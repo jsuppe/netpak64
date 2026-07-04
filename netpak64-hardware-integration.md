@@ -1,6 +1,6 @@
 # NetPak64 × Hardware — Physical Adapter Design
 
-**v0.1 · companion to netpak64-proposal.md v0.2 and netpak64-ares-integration.md v0.1**
+**v0.2 · companion to netpak64-proposal.md v0.2 and netpak64-ares-integration.md v0.1**
 Target: a physical N64 cartridge-slot network adapter · Device decode: PI Dom2/Addr1, base `0x05F0_0000`, 64 KiB window · Status: **P4 design study — nothing built or silicon-validated yet**
 
 ---
@@ -229,6 +229,58 @@ Goal: a forked `n64_netpak.sv` answers the probe in the `0x05F0` window, and the
 - **Combined power budget (dual uplink)** — populating both the ESP32's Wi-Fi radio and an onboard W5500 adds more load to the existing SC64 3.3V rail than either alone, and Wi-Fi TX is bursty (peak current well above idle). Needs a real measurement before committing a PCB rev; treat as open until checked (see the wire diagram's confirmed-vs-open list).
 - **Uplink selection policy** — prefer-wired-if-linked-else-Wi-Fi is the suggested default (§3.2); whether to make this user-configurable (vs. always-automatic) is a small UX decision, not an architectural one.
 - **Provisional Dom2 values** — H1 may let them go *faster* (more throughput) or force them slower; either way the spec §2.1 table gets replaced with measured numbers and the PROVISIONAL marker cleared.
+- **Joybus auxiliary-controller feature (§13)** — optional, separate from the core device. Whether to build it at all is a scope call for later; if yes, J1–J4 (§13.6) gate it, independent of the core H1–H10 checklist.
+
+## 13. Optional feature: auxiliary controller input via joybus channel 4
+
+Separate from the core NetPak64 network device (which lives entirely on the PI bus, §2–§12): the N64's joybus system has a 5th channel — **channel 4**, wired to the cart edge — distinct from the 4 physical controller ports (channels 0–3, which have no cart-slot connection at all and are out of reach for any cartridge, including this one). SC64 already uses channel 4 for cart-side EEPROM/RTC save emulation via `n64_si.sv`. This section specs an *optional* addition: a Bluetooth-controller-relay device on that same channel, for `libnetpak`-aware homebrew specifically — **not** a universal "any N64 game gets a Bluetooth controller" solution, which would need hardware wired into an actual controller port instead (a separate, unrelated device — see §13.1).
+
+### 13.1 What this is, and isn't
+
+- **Is:** an auxiliary input source that NetPak64-aware ROMs can poll, fed by a Bluetooth gamepad paired to the same ESP32 already in the design for networking (§3.2) — reusing its Bluetooth radio, co-located with the Wi-Fi radio at effectively no added hardware cost.
+- **Isn't:** a way for unmodified, existing N64 games to read a Bluetooth controller as regular player input. Games read player input from channels 0–3 exclusively, which the cart-slot connector has no wire to at all (§13.2). That use case needs a separate device — a small dongle wired into an actual controller port — unrelated to this cart.
+
+### 13.2 The joybus channel architecture (verified 2026-07-04)
+
+- Joybus has 5 channels: **0–3 are the four physical controller ports**, on dedicated wires that never reach the cart-slot connector. **Channel 4 is a separate, dedicated one-wire half-duplex line that runs specifically to the cartridge edge connector** — the "external joybus" line (source: n64brew's Joybus Protocol page).
+- Channel 4 is exactly the mechanism cart-side EEPROM save chips use, and it's a real, extensible, well-precedented protocol — the same one behind the Controller Pak, Rumble Pak, Transfer Pak, and even the Randnet keyboard/mouse and VRU, all just different joybus device types on the same wire.
+- **SC64 already implements a real-time joybus responder in fabric**: `fw/rtl/n64/n64_si.sv` — ports `clk`, `reset`, `n64_scb` (SCB interface), `n64_reset`, `n64_si_clk`, `n64_si_dq` (a single bidirectional open-drain data line). It currently emulates EEPROM (`CMD_EEPROM_STATUS/READ/WRITE`) and RTC (`CMD_RTC_STATUS/READ/WRITE`) device types. This is the fork template for this feature, exactly as `n64_dd.sv` was for `n64_netpak.sv` (§3.2).
+
+### 13.3 Timing (sanity-checked 2026-07-04)
+
+| Layer | Budget | Verdict |
+|---|---|---|
+| Joybus wire protocol | 250 kbit/s, 4 µs/bit; a controller-style transaction (1-byte command, 4-byte response) ≈ 160 µs | ~100× margin inside a 16.67 ms (60 fps) frame — not a constraint |
+| FPGA response latency | Answered from a **shadow register**, same pattern as the PI-bus register file (§3) — the FPGA never blocks on the ESP32 or the radio | Proven pattern; proven implementation (`n64_si.sv` ships today) |
+| Bluetooth → shadow-register freshness | BT HID gamepads report at ~60–125 Hz-equivalent cadence (7.5–16 ms) — the same class as wired USB HID polling, and the latency PS4/Xbox/Switch already ship over Bluetooth | Solved-elsewhere problem, not a novel risk |
+| SPI bridge load | A few bytes, at most ~60 Hz — negligible next to the existing KB-scale/10–30 Hz NetPak64 traffic budget | No contention |
+
+⚠ One number not directly verified (source blocked while drafting): joybus's exact "must begin responding within N µs of the stop bit" spec figure. Not treated as a risk — `n64_si.sv` already meets whatever that figure is, in shipping hardware; the plan is to adapt that module, not re-derive its timing from the spec (J1, §13.6).
+
+### 13.4 Device-slot conflict with EEPROM (a scope decision, not a blocker)
+
+Channel 4 is one wire; SC64's `n64_si.sv` currently answers as an EEPROM/RTC device there. A gamepad-shaped device on the same channel can't simultaneously *also* answer as an EEPROM device. Resolution: NetPak64-aware games using this feature use SD-card-backed save (already available via SC64) instead of cart EEPROM — the same "mutually exclusive by design" pattern already used for NetPak64 vs. 64DD (§2). Not a technical blocker, just a feature that isn't free to combine with cart-EEPROM saves on the same channel.
+
+### 13.5 Shape of the fork
+
+| SC64 module | Role | What this feature does |
+|---|---|---|
+| `n64_si.sv` | Real-time joybus/SI responder (currently EEPROM + RTC) | **Fork or extend** — add a new device type (e.g. `CMD_PAD_STATUS`) reusing the standard controller response format (2 bytes buttons + signed X + signed Y) so `libnetpak` parsing is identical to a normal controller poll, just addressed to channel 4 |
+| `n64_scb.sv` | System Control Bus — firmware-facing side of `n64_si` | **Reuse** — the new device type's shadow register updates arrive here, same boundary the NetPak64 register file already uses |
+| ESP32 net module (§3.2) | Runs `netpak-core`; already has a Bluetooth radio (shared with Wi-Fi) | **Add**: a Bluetooth HID host role, updating the joybus shadow register over the existing SPI bridge whenever a fresh gamepad report arrives |
+
+No change to `netpak-spec.md`'s PI-bus register map — this is an entirely separate bus/mechanism, additive and optional.
+
+### 13.6 Validation checklist (J1–J4 — separate from the core H1–H10 list, since this is an optional feature)
+
+| # | Item | How |
+|---|---|---|
+| J1 | Exact joybus response-latency spec figure | Confirm against n64brew's Joybus Protocol page directly (blocked during drafting), or measure `n64_si.sv`'s existing timing on real SC64 hardware |
+| J2 | Whether SC64's SCB has bandwidth/latency headroom for a second shadow register (joybus pad state) alongside the main NetPak64 register-file traffic | Should be trivial given the tiny data size (§13.3), but unmeasured |
+| J3 | ESP32 Bluetooth HID **host** stack maturity in ESP-IDF (host role, not peripheral) | Check ESP-IDF's Bluedroid/NimBLE HID host support before committing |
+| J4 | End-to-end latency, real BT controller to real console | On-hardware test once an HW-M2-equivalent bring-up exists for this feature — not a design-time item |
+
+*Companion to §3 (partition), §3.2 (fork plan), §7 (network module) — this feature rides the same ESP32 and the same FPGA/MCU boundary already designed for networking, adding one new joybus device type rather than new hardware.*
 
 ---
 
