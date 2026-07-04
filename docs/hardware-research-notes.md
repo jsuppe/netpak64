@@ -56,16 +56,28 @@ Direct electrical input injection is closed, but influencing a **retail** game's
 
 **Decision: out of scope for NetPak64.** A controller-port Bluetooth dongle (8BitDo-style, real prior art) and any lockstep box are separate projects; recorded here so the assessment isn't re-litigated from scratch later.
 
-## 5. EXT port vs. all-in-cartridge form factor — resolved (2026-07-04)
+## 5. Form factor: two viable shapes (revised 2026-07-04 — supersedes the earlier "resolved: cart-only")
 
-**EXT's single genuine attraction:** it coexists with a cartridge inserted on top (how DD+cart combo titles worked). For NetPak64 this is moot — homebrew *lives on* the flashcart; there is no second cart to coexist with. The retail-patching scenario where coexistence would matter is out of scope (§4).
+An earlier revision of this section resolved the form factor as all-in-cartridge and dismissed the EXT port. That dismissal under-weighted two things surfaced in later discussion: (a) **cable/antenna ergonomics** — a bottom-mounted device keeps the wired Ethernet run and antenna fixed to the console while game cartridges swap freely above it; and (b) the bigger one, (b) **decoupling** — an EXT device is a NIC that works with *any* cart-slot ROM source (EverDrive, stock SC64, any flashcart), rather than being welded to one forked flashcart. Both connectors share the same PI bus, so the spec (`0x05F0` window) is attachment-point agnostic — **no spec or gateware-core change between shapes.**
 
-**Against EXT:** connector shells/parts are far harder to source than cart shells (only the DD ever used it); some console variants lack it; and it adds nothing electrically (§1).
+**Physical viability (verified 2026-07-04):** the EXT port is the same connector family and transfer speed as the cart slot; community **breakout-board projects for the EXT port exist**, and the Doctor V64 era established the "base unit the console sits on, connected via EXT" form factor as shipped, real-world hardware. The connector is custom work (edge-finger PCB + shell, dust cover removed) but not unobtainable, as previously overstated.
 
-**Resolution: all-in-cartridge.** The SC64 fork already is a complete in-cart design; NetPak64's additions fit the same shell:
-- ESP32 module: small; the cart's plastic shell is RF-transparent and the cart position (top of console, elevated) is actually a decent antenna location. PCB antenna keep-out is a layout task, not a blocker.
-- Optional wired uplink: the RJ45 magjack is the one physically bulky addition — mount it on the cart's top/back edge, the same way SC64 already exposes USB-C and microSD through its shell (direct precedent for connectors on a cart).
-- Power: unchanged from the dual-uplink power-budget open item (hardware doc §12).
+### Shape A — all-in-cartridge (SC64 fork; the validated path)
+- One device: flashcart + NIC in a cart shell. Homebrew lives on it; nothing else needed.
+- Inherits SC64's shipping PCB, bus front-end, CIC-in-fabric (H2/H3/H4/H6/H7 retired), USB flashing, sim-verified gateware — the working HW-M1 plan (§11.1 of the hardware doc).
+- Costs: swapping to another cartridge means unplugging the wired connection with it; the NIC is inseparable from this one flashcart; RJ45 in a cart shell is tight; net-module load rides SC64's existing 3.3 V rail (open power question).
+
+### Shape B — EXT base unit (the decoupled NIC)
+- A slim base under the console: FPGA (register file + bus front-end) + ESP32 (+ optional W5500/RJ45), answering only `0x05F0`. Any flashcart above provides the game.
+- **No CIC needed at all** — the top cartridge boots the console; the base is a pure peripheral, exactly like the 64DD alongside combo carts. (H4 vanishes architecturally rather than by inheritance.)
+- **Much simpler board than a flashcart fork**: no ROM emulation, no save types, no SD/USB loader — just the NIC. Generous mechanical room for RJ45, antenna placement, status LEDs, and optionally **its own power input** (sidestepping the cart-rail budget question entirely — and consistent with the 64DD-had-its-own-supply precedent, §6).
+- Gateware transfers: `n64_netpak.sv` + the conformance harness are attachment-agnostic; SC64's `n64_pi.sv` bus front-end RTL is reusable under GPL on a new board (same PI waveforms arrive at EXT).
+- Costs: a **new PCB** — H6 (electricals/signal integrity) and H7 (mechanical) reopen in full; custom EXT edge connector + shell; the two EXT-only pins (14/39) remain undocumented (likely ignorable for a PI device — verify); EXT port current capacity unverified if not self-powered; absent on iQue variants.
+
+### Sequencing insight: the shapes share everything up to the PCB
+The SC64-fork path remains the **cheapest validation vehicle regardless of final shape**: HW-M1/M2 on a stock SC64 (USB-flash, reversible) validates the gateware, timing (H1/H5), and firmware on real silicon — all of which transfers to a Shape-B board unchanged, since it's the same bus and the same RTL. Decision on the shipping shape can therefore be deferred until after SC64-based validation, at zero cost.
+
+**Status: open, leaning Shape B for the shipping device** (owner preference for the decoupled/base form, 2026-07-04), with Shape A as the validation path and a legitimate shipping option in its own right.
 
 ## 6. 64DD power draw — inconclusive, with reasoning (2026-07-03)
 
