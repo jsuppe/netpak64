@@ -114,52 +114,34 @@
         <div class="stats">
           <div class="stat">
             <div class="stat-number">✅</div>
-            <div class="stat-label">Proposal v0.2 &amp; Design Complete</div>
+            <div class="stat-label">P0–P3 Software Milestones Complete</div>
           </div>
           <div class="stat">
             <div class="stat-number">📐</div>
-            <div class="stat-label">Architecture Documented (C4 L1–L3)</div>
+            <div class="stat-label">Cross-Machine Networking Verified</div>
           </div>
           <div class="stat">
-            <div class="stat-number">⏳</div>
-            <div class="stat-label">Ready for P0 (Spec freeze &amp; Recon)</div>
+            <div class="stat-number">▶</div>
+            <div class="stat-label">Hardware Integration In Progress</div>
           </div>
         </div>
 
-        <p><strong>Current phase:</strong> pre-P0. The proposal (<code>netpak64-proposal.md</code> v0.2) and ares integration design (<code>netpak64-ares-integration.md</code> v0.1) are frozen enough to begin phase P0 (spec extraction and architecture recon against ares). Implementation repos haven't been created yet.</p>
+        <p><strong>Current phase:</strong> P0–P3 are complete. The device model,
+        ares integration, libdragon driver, UDP relay, reliable channel, and
+        example games are working. The MK64 research build demonstrates 2–4
+        player online races and battles. P4 is focused on physical hardware,
+        security, CI, and wider emulator support. See the
+        <a href="../index.html">project showcase</a> for gameplay evidence and
+        the current milestone summary.</p>
 
         <h2>What's Next</h2>
 
-        <h3>P0 — Spec Freeze & Recon (≈1 week)</h3>
+        <h3>P4 — Hardware and release hardening</h3>
         <ul>
-          <li>Extract <code>netpak-spec.md</code> v0.9 as a standalone document</li>
-          <li>Resolve the ares recon checklist (R1–R10) against a real ares checkout</li>
-          <li><strong>Exit:</strong> spec reviewed, recon symbols confirmed</li>
-        </ul>
-
-        <h3>P1 — Loopback Vertical Slice (≈2–3 weeks)</h3>
-        <ul>
-          <li>Create <code>netpak-core</code> and <code>ares</code> fork repos</li>
-          <li>Device attaches, loopback backend (no relay), <code>probe</code> + <code>echo</code> ROMs green</li>
-          <li><strong>Exit:</strong> echo RTT measured in-emulator; savestate round-trips</li>
-        </ul>
-
-        <h3>P2 — UDP Relay MVP (≈2–3 weeks)</h3>
-        <ul>
-          <li>Create <code>np64-relay</code> repo</li>
-          <li>Two ares instances over Tailscale then a VPS run the <code>chat</code> demo</li>
-          <li><strong>Exit:</strong> cross-machine session with latency histogram</li>
-        </ul>
-
-        <h3>P3 — Library Hardening (≈2–3 weeks)</h3>
-        <ul>
-          <li>Reliable <code>ch1</code>, time sync, peer events, epoch semantics, <code>netpong</code> example</li>
-          <li><strong>Exit:</strong> an outside dev can go from README to networked ROM in under an hour</li>
-        </ul>
-
-        <h3>P4 — Stretch</h3>
-        <ul>
-          <li>DTLS/encryption, TCP/TLS fallback, ares upstream RFC, second emulator port, firmware bring-up</li>
+          <li>Complete SummerCart64 firmware integration and validate on real silicon</li>
+          <li>Demonstrate console ↔ emulator gameplay using the same ROM-side API</li>
+          <li>Freeze the v1.0 spec, add CI, and validate onboarding with an outside homebrew developer</li>
+          <li>DTLS/encryption, ares upstream RFC, and a second emulator port</li>
         </ul>
 
         <h2>Key Differentiators</h2>
@@ -205,7 +187,7 @@
   <footer>
     <div class="container">
       <p><strong>NetPak64</strong> — Architecture & Design Documentation</p>
-      <p>Status: Pre-phase-0 (Spec freeze & recon pending) · <a href="https://github.com/n64brew/netpak64" style="color: #0066cc;">Source (when available)</a></p>
+      <p>Status: P0–P3 complete; P4 in progress · <a href="../index.html" style="color: #0066cc;">Project showcase</a> · <a href="https://github.com/jsuppe/netpak64" style="color: #0066cc;">Source</a></p>
       <p style="margin-top: 20px; opacity: 0.6;">Documentation generated from PlantUML C4 diagrams · References integrated throughout</p>
     </div>
   </footer>

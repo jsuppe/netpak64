@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="NetPak64 is an experimental memory-mapped network device for Nintendo 64 homebrew, demonstrated with online Mario Kart 64 gameplay.">
+  <meta name="theme-color" content="#101417">
+  <meta property="og:title" content="NetPak64 — Networked Nintendo 64">
+  <meta property="og:description" content="A memory-mapped N64 network device, from register-level spec to synchronized four-player gameplay.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://jsuppe.github.io/netpak64/">
+  <meta property="og:image" content="https://jsuppe.github.io/netpak64/assets/media/four-player-battle.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>NetPak64 — Networked Nintendo 64, from spec to gameplay</title>
+  <link rel="stylesheet" href="assets/showcase.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="NetPak64 home"><span class="brand-mark" aria-hidden="true">NP</span><span>NetPak64</span></a>
+    <nav aria-label="Primary navigation"><a href="#proof">Proof</a><a href="#system">System</a><a href="#milestones">Milestones</a><a href="#source">Source</a></nav>
+    <a class="button button-small" href="https://github.com/jsuppe/netpak64">View on GitHub</a>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-grid" aria-hidden="true"></div>
+      <div class="hero-copy reveal">
+        <p class="eyebrow">An experimental network adapter for Nintendo 64</p>
+        <h1>The game sees a <em>network device</em>, not netplay.</h1>
+        <p class="lede">NetPak64 defines a memory-mapped NIC on the N64 PI bus, connects it to a lightweight UDP relay, and lets games own their netcode. The same register-level contract targets emulators today and physical hardware tomorrow.</p>
+        <div class="hero-actions"><a class="button" href="#proof">Watch it run</a><a class="text-link" href="web/index.html">Read the architecture <span aria-hidden="true">→</span></a></div>
+        <ul class="hero-facts" aria-label="Project highlights">
+          <li><strong>4</strong><span>synchronized players</span></li><li><strong>8</strong><span>peer room capacity</span></li><li><strong>1,024 B</strong><span>datagram payload</span></li><li><strong>0</strong><span>PC tether required</span></li>
+        </ul>
+      </div>
+      <aside class="hero-console reveal" aria-label="NetPak64 connection sequence">
+        <div class="console-bar"><span></span><span></span><span></span><b>session.log</b></div>
+        <pre><code><span class="dim">00:00.000</span> <span class="cyan">PROBE</span>  MAGIC = NP64
+<span class="dim">00:00.001</span> <span class="green">LINK</span>   relay connected
+<span class="dim">00:00.012</span> <span class="green">ROOM</span>   RACE23 · node 0
+<span class="dim">00:00.037</span> <span class="green">PEER</span>   alice, bob, carol, dave
+<span class="dim">00:00.051</span> <span class="gold">SYNC</span>   input delay = 3 frames
+<span class="dim">00:00.084</span> <span class="green">RACE</span>   deterministic lockstep
+<span class="dim">00:25.000</span> <span class="green">HASH</span>   4/4 peers · no divergence</code></pre>
+      </aside>
+    </section>
+
+    <section class="statement section">
+      <p class="section-kicker">The objective</p><h2>Give N64 software a durable, hardware-shaped networking contract.</h2>
+      <p>Most emulator netplay synchronizes controllers outside the game. NetPak64 instead exposes registers, packet buffers, interrupts, rooms, peers, and a shared clock. A homebrew title can choose snapshots, prediction, reliable events, or lockstep—and keep the same ROM-side code when the transport changes.</p>
+    </section>
+
+    <section class="section proof" id="proof">
+      <div class="section-heading reveal"><div><p class="section-kicker">Working evidence</p><h2>From packet exchange to synchronized gameplay.</h2></div><p>These captures are unedited emulator output from separate ares instances communicating through the NetPak64 relay. No ROM image is distributed with this project.</p></div>
+      <article class="featured-demo reveal">
+        <div class="video-shell">
+          <video controls playsinline preload="metadata" poster="assets/media/four-player-battle.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-2026-10-12/netpak64-four-player-battle.mp4" type="video/mp4">Your browser cannot play this demo. <a href="https://github.com/jsuppe/netpak64/releases/tag/showcase-2026-10-12">Download it here</a>.</video>
+          <span class="video-label">Latest build · four independent instances</span>
+        </div>
+        <div class="demo-copy"><p class="eyebrow">Featured demo</p><h3>Four-player battle, one shared simulation</h3><p>Each window runs a complete N64 instance. Inputs cross the relay and enter a deterministic lockstep ring; items, collisions, balloons, and standings remain identical on every peer.</p>
+          <ul class="check-list"><li>Public-room discovery and rotating hosts</li><li>Adaptive input delay derived from lobby latency</li><li>Per-frame divergence instrumentation</li><li>Peer loss converts the abandoned kart to a CPU driver</li></ul>
+        </div>
+      </article>
+      <div class="demo-grid">
+        <article class="demo-card reveal"><video controls playsinline preload="metadata" poster="assets/media/two-player-race.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-2026-10-12/netpak64-two-player-lockstep.mp4" type="video/mp4"></video><div><p class="eyebrow">Development proof</p><h3>Two-player lockstep race</h3><p>An earlier instrumented build visualizes each peer’s locally generated controller input while both simulations remain synchronized.</p></div></article>
+        <article class="demo-card reveal"><video controls playsinline preload="metadata" poster="assets/media/lobby-flow.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-2026-10-12/netpak64-lobby-flow.mp4" type="video/mp4"></video><div><p class="eyebrow">Product flow</p><h3>Host, find, join, race</h3><p>The modified game adds an online menu, room codes, public game discovery, player names, lobby presence, and coordinated start.</p></div></article>
+      </div>
+    </section>
+
+    <section class="section outcomes" aria-labelledby="outcomes-title">
+      <div class="section-heading reveal"><div><p class="section-kicker">What was achieved</p><h2 id="outcomes-title">A complete vertical slice.</h2></div><p>Measured results from the July 2026 development campaign. These are engineering checkpoints, not synthetic product claims.</p></div>
+      <div class="metric-grid"><article class="metric reveal"><strong>115k+</strong><span>host-side device checks passing</span></article><article class="metric reveal"><strong>200 / 200</strong><span>cross-machine latency samples delivered</span></article><article class="metric reveal"><strong>20%</strong><span>bidirectional loss survived by reliable ch1</span></article><article class="metric reveal"><strong>8 / 8</strong><span>deterministic emulator campaign instances</span></article></div>
+      <div class="evidence-note reveal"><p><strong>Cross-machine result:</strong> arm64 macOS ↔ x86-64 Linux over Tailscale, with 0 lost samples and an 11.9 ms average relay RTT.</p><a class="text-link" href="https://github.com/jsuppe/netpak64/blob/master/ROADMAP.md">Read the test record <span aria-hidden="true">→</span></a></div>
+    </section>
+
+    <section class="section system" id="system">
+      <div class="section-heading reveal"><div><p class="section-kicker">The system</p><h2>One protocol, five cooperating pieces.</h2></div><p>The register map and wire protocol are the stable center. Emulator glue, ROM-side libraries, relay software, game code, and future cartridge logic all meet at that boundary.</p></div>
+      <div class="pipeline reveal" role="img" aria-label="Game ROM communicates through libnetpak to a memory-mapped NetPak64 device, then through a UDP relay to other emulators or future physical hardware"><div><b>Game ROM</b><span>Owns netcode</span></div><i aria-hidden="true">→</i><div><b>libnetpak</b><span>Driver + channels</span></div><i aria-hidden="true">→</i><div><b>NetPak device</b><span>PI bus + IRQ</span></div><i aria-hidden="true">→</i><div><b>UDP relay</b><span>Rooms + presence</span></div><i aria-hidden="true">→</i><div><b>Peers</b><span>Emulator / hardware</span></div></div>
+      <div class="capability-grid">
+        <article class="reveal"><span>01</span><h3>Versioned device spec</h3><p>A 64 KiB Domain 2 window with capabilities, command mailbox, packet buffers, IRQ state, and epoch handling.</p></article>
+        <article class="reveal"><span>02</span><h3>Thin ares integration</h3><p>The emulator owns deterministic device state while a network thread only touches lock-free queues and atomics.</p></article>
+        <article class="reveal"><span>03</span><h3>Game-facing library</h3><p>Non-blocking datagrams, dynamic sessions, peer discovery, shared time, unreliable ch0, and reliable-ordered ch1.</p></article>
+        <article class="reveal"><span>04</span><h3>Self-hosted relay</h3><p>A compact Rust/Tokio UDP service with join codes, presence, NAT re-pinning, rate limits, and Prometheus metrics.</p></article>
+        <article class="reveal"><span>05</span><h3>MK64 research build</h3><p>Online menus and a deterministic multiplayer engine prove that a full commercial-era game can use the device model.</p></article>
+        <article class="reveal"><span>06</span><h3>Hardware path</h3><p>SummerCart64 gateware decodes the NetPak64 register window. Firmware and end-to-end console transport remain in progress.</p></article>
+      </div>
+    </section>
+
+    <section class="section milestones" id="milestones">
+      <div class="section-heading reveal"><div><p class="section-kicker">Milestones</p><h2>What shipped—and what comes next.</h2></div></div>
+      <ol class="timeline">
+        <li class="done reveal"><span>P0</span><div><h3>Specify and investigate</h3><p>Register-level v0.9 spec, protocol, ares recon, architecture, and hardware constraints documented.</p></div><b>Complete</b></li>
+        <li class="done reveal"><span>P1</span><div><h3>Loopback vertical slice</h3><p>Device probe, IRQ and polling paths, deterministic packet echo, savestate serialization, and epoch resync.</p></div><b>Complete</b></li>
+        <li class="done reveal"><span>P2</span><div><h3>Internet transport</h3><p>UDP relay, rooms, reliable control plane, loss and NAT-rebind soaks, cross-machine validation, metrics.</p></div><b>Complete</b></li>
+        <li class="done reveal"><span>P3</span><div><h3>Developer experience</h3><p>libdragon API, seven example ROMs, reliable-ordered channel, time sync, peer events, and NetPong.</p></div><b>Complete</b></li>
+        <li class="done reveal"><span>R&amp;D</span><div><h3>Mario Kart 64 proof</h3><p>In-game online flow and 2–4 player lockstep races and battles with synchronization diagnostics.</p></div><b>Working prototype</b></li>
+        <li class="active reveal"><span>HW</span><div><h3>Physical cartridge path</h3><p>Complete SummerCart64 firmware integration, validate bus timing, then prove console ↔ emulator gameplay.</p></div><b>Next</b></li>
+        <li class="future reveal"><span>1.0</span><div><h3>Public developer release</h3><p>Freeze the spec, consolidate reproducible builds and CI, publish patch-based demos, and recruit an outside homebrew tester.</p></div><b>Planned</b></li>
+      </ol>
+    </section>
+
+    <section class="section source" id="source">
+      <div class="source-panel reveal"><div><p class="section-kicker">Explore the work</p><h2>Open source, separated by responsibility.</h2><p>The public repositories contain original code, documentation, emulator changes, and the MK64 modification source. They do not contain Nintendo ROM images or extracted game assets.</p></div>
+        <div class="repo-list"><a href="https://github.com/jsuppe/netpak64"><b>netpak64</b><span>Spec, architecture, project hub</span></a><a href="https://github.com/jsuppe/libnetpak"><b>libnetpak</b><span>libdragon driver and examples</span></a><a href="https://github.com/jsuppe/np64-relay"><b>np64-relay</b><span>Self-hosted UDP relay</span></a><a href="https://github.com/jsuppe/ares-netpak64"><b>ares-netpak64</b><span>Emulator integration</span></a><a href="https://github.com/jsuppe/mk64-netpak64"><b>mk64-netpak64</b><span>Research modification source</span></a><a href="https://github.com/jsuppe/netpak64-harness"><b>netpak64-harness</b><span>Determinism and gameplay test rig</span></a></div>
+      </div>
+      <p class="legal">NetPak64 is an independent, unofficial research and homebrew project. Nintendo 64 and Mario Kart 64 are trademarks of Nintendo. Build instructions require a legally obtained copy of the game; no ROM or copyrighted game assets are provided.</p>
+    </section>
+  </main>
+  <footer><p><strong>NetPak64</strong> · Built in public, measured in packets and frames.</p><p><a href="web/index.html">Architecture docs</a> · <a href="https://github.com/jsuppe/netpak64/blob/master/netpak-spec.md">Device spec</a> · <a href="https://github.com/jsuppe/netpak64">GitHub</a></p></footer>
+  <script src="assets/showcase.js"></script>
+</body>
+</html>

@@ -1,6 +1,12 @@
 # NetPak64 — Roadmap & Project Plan
 
-**Status: pre-P0.** Nothing has been built yet; the proposal and ares-integration design are frozen enough to start recon. This document tracks repo structure, phase status, and open decisions across the polyrepo. Source of truth for the *technical* spec remains `netpak64-proposal.md` and `netpak64-ares-integration.md` — this file tracks *plan and structure*, not design.
+**Status (2026-10-12): P0–P3 complete; P4 in progress.** The emulator-first
+device, ROM-side library, UDP relay, examples, and cross-machine validation are
+working. A separate MK64 research build demonstrates 2–4 player online races
+and battles. SummerCart64 gateware has passed simulation and differential
+conformance; firmware integration and real-silicon console ↔ emulator play are
+the next hardware milestones. This document tracks plan and structure; the
+technical source of truth remains `netpak-spec.md` and the design documents.
 
 ## Documentation status
 

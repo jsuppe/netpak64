@@ -6,16 +6,20 @@ PI bus — not input-lockstep netplay — and write their own netcode against a
 libdragon driver library. Because the contract is a register-level spec, the
 same ROM is designed to later run against physical hardware.
 
-**Status (2026-07-04):** P0 ✅ · P1 (loopback vertical slice) ✅ · P2 (UDP
+**Status (2026-10-12):** P0 ✅ · P1 (loopback vertical slice) ✅ · P2 (UDP
 relay, incl. cross-machine + soaks) ✅ · P3 (library & DX, incl. `ch1` +
 `netpong`) ✅ · **P4 (stretch) ▶** — hardware and security design studies
 underway; nothing built on real silicon yet. See [`ROADMAP.md`](ROADMAP.md)
 for the live plan.
 
+**Project showcase:** [jsuppe.github.io/netpak64](https://jsuppe.github.io/netpak64/)
+— objectives, gameplay demonstrations, measured results, architecture, and milestones.
+
 ## This repository is the project hub
 
 Spec, design docs, architecture set, and dev orchestration. The
-implementations live in sibling repos (all private on GitHub):
+implementations live in sibling repos. Most are public; `netpak-core` remains
+private while its public API and conformance surface are finalized:
 
 | Repo | What | Status |
 |---|---|---|
@@ -23,7 +27,9 @@ implementations live in sibling repos (all private on GitHub):
 | [`netpak-core/`](https://github.com/jsuppe/netpak-core) | Standalone C++ device library (register file, FSM, rings, `CtlPlane`, `NetClient`) — the reference implementation, submoduled into ares | Host tests green; RTL↔core differential conformance passing |
 | [`libnetpak/`](https://github.com/jsuppe/libnetpak) | libdragon C driver + example ROMs (probe, echo, netchat, netcmd, netbench, chtest, **netpong**). **Start here as a game developer** — its README is the integration guide | Feature-complete: ch0 + `ch1` reliable-ordered, sessions, `netpong` playable w/ controller input |
 | [`np64-relay/`](https://github.com/jsuppe/np64-relay) | Rust/tokio UDP relay: rooms, presence, forwarding, rate limiting, metrics | Working; cross-machine + loss/rebind soaks pass |
-| ares fork | Branch `netpak` on ares v148: glue + `thirdparty/netpak-core` | All example ROMs green, incl. `netpong` |
+| [`ares-netpak64`](https://github.com/jsuppe/ares-netpak64) | Branch `netpak` on ares v148: glue + `thirdparty/netpak-core` | All example ROMs green, incl. `netpong` |
+| [`mk64-netpak64`](https://github.com/jsuppe/mk64-netpak64) | MK64 research modification: in-game online flow and deterministic lockstep | 2–4 player races and battles working in ares |
+| [`netpak64-harness`](https://github.com/jsuppe/netpak64-harness) | Multi-instance determinism, disruption, performance, and capture rig | 2/4/8-instance campaigns and replay checks |
 
 ## Document map
 
