@@ -21,6 +21,8 @@ Large MP4s are attached to the GitHub release tagged `showcase-2026-10-12`.
 The static site keeps only optimized poster images in `assets/media/`.
 
 - `netpak64-four-player-battle.mp4` — current four-instance gameplay capture.
+- `netpak64-v76-native-ai-race.mp4` — v76 four-instance native-CPU race;
+  3,732 compared lockstep frames completed with no divergence.
 - `netpak64-two-player-lockstep.mp4` — early input-overlay lockstep proof.
 - `netpak64-lobby-flow.mp4` — host/find/join flow demonstration.
 
