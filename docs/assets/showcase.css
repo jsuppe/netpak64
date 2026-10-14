@@ -106,6 +106,8 @@ footer a { color: var(--ink); text-decoration: none; }
 .reveal.visible { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { :root { scroll-behavior: auto; } .reveal { opacity: 1; transform: none; transition: none; } .button { transition: none; } }
 @media (max-width: 900px) {
+  .hero-grid { inset: 0; }
+  .hero::after { width: min(34rem,80vw); height: min(34rem,80vw); }
   nav { display: none; } .hero { grid-template-columns: 1fr; min-height: auto; } .hero-console { max-width: 620px; transform: none; }
   .featured-demo,.section-heading,.source-panel { grid-template-columns: 1fr; gap: 2rem; } .metric-grid { grid-template-columns: repeat(2,1fr); }
   .capability-grid { grid-template-columns: repeat(2,1fr); } .pipeline { grid-template-columns: 1fr; } .pipeline i { transform: rotate(90deg); text-align: center; }
