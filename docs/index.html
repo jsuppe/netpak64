@@ -9,7 +9,7 @@
   <meta property="og:description" content="A memory-mapped N64 network device, from register-level spec to synchronized four-player gameplay.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://jsuppe.github.io/netpak64/">
-  <meta property="og:image" content="https://jsuppe.github.io/netpak64/assets/media/v76-native-ai-race.jpg">
+  <meta property="og:image" content="https://jsuppe.github.io/netpak64/assets/media/v77-three-lap-race.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <title>NetPak64 — Networked Nintendo 64, from spec to gameplay</title>
   <link rel="stylesheet" href="assets/showcase.css">
@@ -55,15 +55,15 @@
       <div class="section-heading reveal"><div><p class="section-kicker">Working evidence</p><h2>From packet exchange to synchronized gameplay.</h2></div><p>These captures are unedited emulator output from separate ares instances communicating through the NetPak64 relay. No ROM image is distributed with this project.</p></div>
       <article class="featured-demo reveal">
         <div class="video-shell">
-          <video controls playsinline preload="metadata" poster="assets/media/v76-native-ai-race.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-2026-10-12/netpak64-v76-native-ai-race.mp4" type="video/mp4">Your browser cannot play this demo. <a href="https://github.com/jsuppe/netpak64/releases/tag/showcase-2026-10-12">Download it here</a>.</video>
+          <video controls playsinline preload="metadata" poster="assets/media/v77-three-lap-race.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-v77/netpak64-v77-four-peer-race.mp4" type="video/mp4">Your browser cannot play this demo. <a href="https://github.com/jsuppe/netpak64/releases/tag/showcase-v77">Download it here</a>.</video>
           <span class="video-label">v76 · four independent instances</span>
         </div>
-        <div class="demo-copy"><p class="eyebrow">Featured demo</p><h3>Four native-AI racers, one shared simulation</h3><p>Each window runs a complete N64 instance. v76 delegates automated race participants to Mario Kart 64's course-aware CPU driver, replacing the prototype steering loop that repeatedly hit walls.</p>
-          <ul class="check-list"><li>3,732 shared frames compared with zero divergence</li><li>Course-aware cornering and off-track recovery</li><li>Bot state enters the same delayed lockstep ring as human input</li><li>Human racers remain controller-driven</li></ul>
+        <div class="demo-copy"><p class="eyebrow">Featured demo</p><h3>Four racers, full three-lap race lifecycle</h3><p>Each view runs a complete N64 instance. v77 removes the one-lap test shortcut that prematurely selected cinematic cameras, and lets all automated participants finish three laps before results. Footage is native CPU automation, not human-controller play.</p>
+          <ul class="check-list"><li>Three runs: 9,241 / 7,664 / 8,040 shared frames, zero divergence</li><li>All 12 participant finishes; no premature cinematic camera samples</li><li>AI ownership and finish state follow shared lockstep input</li><li>Human-only, other-course, Battle-driver, and console qualification remain separate</li></ul><p><a href="https://jsuppe.github.io/mk64-online/">MK64 player showcase, 30-fps host view, and uncut captures ↗</a></p>
         </div>
       </article>
       <div class="demo-grid">
-        <article class="demo-card reveal"><video controls playsinline preload="metadata" poster="assets/media/four-player-battle.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-2026-10-12/netpak64-four-player-battle.mp4" type="video/mp4"></video><div><p class="eyebrow">Current battle proof</p><h3>Four-player battle</h3><p>Four complete N64 instances exchange inputs through the relay while items, collisions, balloons, and standings stay identical on every peer.</p></div></article>
+        <article class="demo-card reveal"><video controls playsinline preload="metadata" poster="assets/media/four-player-battle.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-2026-10-12/netpak64-four-player-battle.mp4" type="video/mp4"></video><div><p class="eyebrow">Battle development proof</p><h3>Four-player battle</h3><p>Four N64 instances exchange inputs through the relay. This older recording is synchronization evidence; Battle waypoint navigation remains unfinished and is not covered by the v77 race qualification.</p></div></article>
         <article class="demo-card reveal"><video controls playsinline preload="metadata" poster="assets/media/two-player-race.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-2026-10-12/netpak64-two-player-lockstep.mp4" type="video/mp4"></video><div><p class="eyebrow">Development proof</p><h3>Two-player lockstep race</h3><p>An earlier instrumented build visualizes each peer’s locally generated controller input while both simulations remain synchronized.</p></div></article>
         <article class="demo-card reveal"><video controls playsinline preload="metadata" poster="assets/media/lobby-flow.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-2026-10-12/netpak64-lobby-flow.mp4" type="video/mp4"></video><div><p class="eyebrow">Product flow</p><h3>Host, find, join, race</h3><p>The modified game adds an online menu, room codes, public game discovery, player names, lobby presence, and coordinated start.</p></div></article>
       </div>
