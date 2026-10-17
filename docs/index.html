@@ -12,13 +12,13 @@
   <meta property="og:image" content="https://jsuppe.github.io/netpak64/assets/media/v77-three-lap-race.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <title>NetPak64 — Networked Nintendo 64, from spec to gameplay</title>
-  <link rel="stylesheet" href="assets/showcase.css?v=77">
+  <link rel="stylesheet" href="assets/showcase.css?v=setup-v0.4">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <a class="brand" href="#top" aria-label="NetPak64 home"><span class="brand-mark" aria-hidden="true">NP</span><span>NetPak64</span></a>
-    <nav aria-label="Primary navigation"><a href="#proof">Proof</a><a href="#system">System</a><a href="#milestones">Milestones</a><a href="#source">Source</a></nav>
+    <nav aria-label="Primary navigation"><a href="prototype.html">Prototype</a><a href="#proof">Proof</a><a href="#system">System</a><a href="#milestones">Milestones</a><a href="#source">Source</a></nav>
     <a class="button button-small" href="https://github.com/jsuppe/netpak64">View on GitHub</a>
   </header>
 
@@ -31,7 +31,7 @@
         <p class="lede">NetPak64 defines a memory-mapped NIC on the N64 PI bus, connects it to a lightweight UDP relay, and lets games own their netcode. The same register-level contract targets emulators today and physical hardware tomorrow.</p>
         <div class="hero-actions"><a class="button" href="#proof">Watch it run</a><a class="text-link" href="web/index.html">Read the architecture <span aria-hidden="true">→</span></a></div>
         <ul class="hero-facts" aria-label="Project highlights">
-          <li><strong>4</strong><span>synchronized players</span></li><li><strong>8</strong><span>peer room capacity</span></li><li><strong>1,024 B</strong><span>datagram payload</span></li><li><strong>0</strong><span>PC tether required</span></li>
+          <li><strong>4</strong><span>synchronized players</span></li><li><strong>8</strong><span>peer room capacity</span></li><li><strong>1,024 B</strong><span>datagram payload</span></li><li><strong>USB-free</strong><span>hardware target</span></li>
         </ul>
       </div>
       <aside class="hero-console reveal" aria-label="NetPak64 connection sequence">
@@ -51,12 +51,17 @@
       <p>Most emulator netplay synchronizes controllers outside the game. NetPak64 instead exposes registers, packet buffers, interrupts, rooms, peers, and a shared clock. A homebrew title can choose snapshots, prediction, reliable events, or lockstep—and keep the same ROM-side code when the transport changes.</p>
     </section>
 
+    <section class="section" id="prototype">
+      <div class="section-heading"><div><p class="section-kicker">New / 16 October 2026 / Setup ROM v0.4</p><h2>A 3D setup ROM. A real update-service connection.</h2></div><p>Explore the USB-free cartridge-interposer prototype: large-text N64 menus, manual IPv4 editing, and a verified 256KiB HTTP download through the experimental ares management device.</p></div>
+      <article class="featured-demo"><div class="video-shell"><video controls playsinline preload="metadata" poster="assets/media/setup-v0.4/netpak-setup-v0.4-network.webp"><source src="https://github.com/jsuppe/netpak64/releases/download/setup-v0.4/netpak-setup-v0.4-3d-walkthrough.mp4" type="video/mp4"></video><span class="video-label">Setup ROM v0.4 · emulator capture</span></div><div class="demo-copy"><p class="eyebrow">Recorded prototype evidence</p><h3>Configure. Download. Verify.</h3><p>Actual RSP/RDP perspective menus, animated card selection and page turns. The update bytes and SHA-256 checks are real; Ethernet/DHCP are modeled, and firmware installation is not implemented.</p><a class="button" href="prototype.html">Screens, controls &amp; service details →</a><p><small>Local service connection verified 16 October 2026. This static site is not a live uptime monitor.</small></p></div></article>
+    </section>
+
     <section class="section proof" id="proof">
-      <div class="section-heading reveal"><div><p class="section-kicker">Working evidence</p><h2>From packet exchange to synchronized gameplay.</h2></div><p>These captures are unedited emulator output from separate ares instances communicating through the NetPak64 relay. No ROM image is distributed with this project.</p></div>
+      <div class="section-heading reveal"><div><p class="section-kicker">Working evidence</p><h2>From packet exchange to synchronized gameplay.</h2></div><p>These captures are unedited emulator output from separate ares instances communicating through the NetPak64 relay. No commercial game ROM image is distributed with this project.</p></div>
       <article class="featured-demo reveal">
         <div class="video-shell">
           <video controls playsinline preload="metadata" poster="assets/media/v77-three-lap-race.jpg"><source src="https://github.com/jsuppe/netpak64/releases/download/showcase-v77/netpak64-v77-four-peer-race.mp4" type="video/mp4">Your browser cannot play this demo. <a href="https://github.com/jsuppe/netpak64/releases/tag/showcase-v77">Download it here</a>.</video>
-          <span class="video-label">v76 · four independent instances</span>
+          <span class="video-label">v77 · four independent instances</span>
         </div>
         <div class="demo-copy"><p class="eyebrow">Featured demo</p><h3>Four racers, full three-lap race lifecycle</h3><p>Each view runs a complete N64 instance. v77 removes the one-lap test shortcut that prematurely selected cinematic cameras, and lets all automated participants finish three laps before results. Footage is native CPU automation, not human-controller play.</p>
           <ul class="check-list"><li>Three runs: 9,241 / 7,664 / 8,040 shared frames, zero divergence</li><li>All 12 participant finishes; no premature cinematic camera samples</li><li>AI ownership and finish state follow shared lockstep input</li><li>Human-only, other-course, Battle-driver, and console qualification remain separate</li></ul><p><a href="https://jsuppe.github.io/mk64-online/">MK64 player showcase, 30-fps host view, and uncut captures ↗</a></p>
@@ -84,7 +89,7 @@
         <article class="reveal"><span>03</span><h3>Game-facing library</h3><p>Non-blocking datagrams, dynamic sessions, peer discovery, shared time, unreliable ch0, and reliable-ordered ch1.</p></article>
         <article class="reveal"><span>04</span><h3>Self-hosted relay</h3><p>A compact Rust/Tokio UDP service with join codes, presence, NAT re-pinning, rate limits, and Prometheus metrics.</p></article>
         <article class="reveal"><span>05</span><h3>MK64 research build</h3><p>Online menus and a deterministic multiplayer engine prove that a full commercial-era game can use the device model.</p></article>
-        <article class="reveal"><span>06</span><h3>Hardware path</h3><p>SummerCart64 gateware decodes the NetPak64 register window. Firmware and end-to-end console transport remain in progress.</p></article>
+        <article class="reveal"><span>06</span><h3>Hardware path</h3><p>The selected USB-free path is an active cartridge interposer. Digital simulation and the setup-ROM management workflow are in progress; physical electricals and target firmware remain unqualified.</p></article>
       </div>
     </section>
 
@@ -96,7 +101,8 @@
         <li class="done reveal"><span>P2</span><div><h3>Internet transport</h3><p>UDP relay, rooms, reliable control plane, loss and NAT-rebind soaks, cross-machine validation, metrics.</p></div><b>Complete</b></li>
         <li class="done reveal"><span>P3</span><div><h3>Developer experience</h3><p>libdragon API, seven example ROMs, reliable-ordered channel, time sync, peer events, and NetPong.</p></div><b>Complete</b></li>
         <li class="done reveal"><span>R&amp;D</span><div><h3>Mario Kart 64 proof</h3><p>In-game online flow, 2–4 player lockstep races and battles, synchronization diagnostics, and native CPU driving for automated race participants.</p></div><b>Working prototype</b></li>
-        <li class="active reveal"><span>HW</span><div><h3>Physical cartridge path</h3><p>Complete SummerCart64 firmware integration, validate bus timing, then prove console ↔ emulator gameplay.</p></div><b>Next</b></li>
+        <li class="done reveal"><span>SETUP</span><div><h3>Configuration ROM + update staging</h3><p>v0.4 animated 3D menus, focused network editing, and actual HTTP download/hash verification through ares. <a href="prototype.html">Watch and inspect the prototype</a>. No firmware flashing.</p></div><b>Emulator prototype</b></li>
+        <li class="active reveal"><span>HW</span><div><h3>Physical cartridge path</h3><p>Build the USB-free cartridge interposer around the validated software reference. Bind management to FPGA/MCU firmware, then qualify timing, electricals and untethered gameplay.</p></div><b>Next</b></li>
         <li class="future reveal"><span>1.0</span><div><h3>Public developer release</h3><p>Freeze the spec, consolidate reproducible builds and CI, publish patch-based demos, and recruit an outside homebrew tester.</p></div><b>Planned</b></li>
       </ol>
     </section>

@@ -1,0 +1,74 @@
+{
+  "capture_build": "NetPak Setup v0.4",
+  "prototype_source_commit": "5cd0df7",
+  "captured_in": "modified ares management-device emulator",
+  "capture_date": "2026-10-16",
+  "media_policy": "Capture build version appears in every filename and visible caption. Preserve earlier evidence rather than overwriting it. Firmware artifact version is separate from UI capture build.",
+  "video": {
+    "filename": "netpak-setup-v0.4-3d-walkthrough.mp4",
+    "release": "setup-v0.4",
+    "sha256": "1d253fbcf885b54f886d2742b827ad8a3d3955a5f2862b5ca285be5b12f8782d"
+  },
+  "images": [
+    {
+      "filename": "netpak-setup-v0.4-address-editor.webp",
+      "capture_build": "v0.4",
+      "sha256": "f33a8bdeaf87f86477036af3fb3767a4a53002c6c945c5cf0bcf51ab55e4fbc0"
+    },
+    {
+      "filename": "netpak-setup-v0.4-applied-network.webp",
+      "capture_build": "v0.4",
+      "sha256": "ffe00576d834314b3498f71d91c561ec93feec76af9d4cf05318897022de9d09"
+    },
+    {
+      "filename": "netpak-setup-v0.4-apply-dialog.webp",
+      "capture_build": "v0.4",
+      "sha256": "e6588b1e80e0407b26a22efb0141d71b85c39131c8a9937f7411e5047d70c296"
+    },
+    {
+      "filename": "netpak-setup-v0.4-connection-details.webp",
+      "capture_build": "v0.4",
+      "sha256": "af30ff3f0671d1d250e75a324066a35b8d7668a76b78b56b37166eaab0c3655e"
+    },
+    {
+      "filename": "netpak-setup-v0.4-device-lab.webp",
+      "capture_build": "v0.4",
+      "sha256": "26471eef06376bf09eca61bbfccb6b48c9e9ac0f326791956c95c7b795840417"
+    },
+    {
+      "filename": "netpak-setup-v0.4-manual-fields.webp",
+      "capture_build": "v0.4",
+      "sha256": "6c67390353258f048534967f230ac0c377e75a276e4f878990fdddb2fafa8517"
+    },
+    {
+      "filename": "netpak-setup-v0.4-network.webp",
+      "capture_build": "v0.4",
+      "sha256": "52fc38995e4f7c1979447dd9e45257be28729a78110804618c01fe2243b9a9c6"
+    },
+    {
+      "filename": "netpak-setup-v0.4-page-turn.webp",
+      "capture_build": "v0.4",
+      "sha256": "cb39a1e92d24c7c85ea524344a42505af40e647f4038d014d7a81e03cf4c8126"
+    },
+    {
+      "filename": "netpak-setup-v0.4-readable-message.webp",
+      "capture_build": "v0.4",
+      "sha256": "09af14a93c0dce1a81d91eab16db17728dfdab11d555acc2d32e295d40ce2d79"
+    },
+    {
+      "filename": "netpak-setup-v0.4-update-details.webp",
+      "capture_build": "v0.4",
+      "sha256": "a301a461dd59cd91900b9a3bbb1a0dd97fbe709862dce34cde9dd38636ea2efa"
+    },
+    {
+      "filename": "netpak-setup-v0.4-update-preview.webp",
+      "capture_build": "v0.4",
+      "sha256": "8f9c3579918c17090908cfbc6b080cce567d5ee204e226a334fabfbb4e355e88"
+    },
+    {
+      "filename": "netpak-setup-v0.4-update.webp",
+      "capture_build": "v0.4",
+      "sha256": "caf32701aa61f0dea7e4b63299eb921bbea17e26db0dfcd21e2640e362509b8f"
+    }
+  ]
+}

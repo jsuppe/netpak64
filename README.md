@@ -13,6 +13,8 @@ underway; nothing built on real silicon yet. See [`ROADMAP.md`](ROADMAP.md)
 for the live plan.
 
 **Project showcase:** [jsuppe.github.io/netpak64](https://jsuppe.github.io/netpak64/)
+
+**Setup ROM / hardware prototype:** [v0.4 menus, controls and update-service proof](https://jsuppe.github.io/netpak64/prototype.html)
 — objectives, gameplay demonstrations, measured results, architecture, and milestones.
 
 ## This repository is the project hub
