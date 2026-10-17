@@ -55,3 +55,8 @@ Open `http://127.0.0.1:8080/`.
   Update HTTP is not carried through the gameplay relay. NIC/DHCP remain modeled;
   there is no installed firmware, signing or physical board qualification.
 - Only emulator captures are published in this update; no ROM/firmware download.
+
+Older Battle/two-player/lobby embeds were moved to a historical release link
+because their capture-build provenance is unknown. Assets remain untouched in
+the archive; they were not relabeled with an invented ROM version. All current
+homepage/prototype embedded media has a known build version in its filename.
